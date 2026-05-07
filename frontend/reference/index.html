@@ -1,0 +1,1986 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DataMind AI — 智能数据分析平台</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        /* ==================== CSS Variables ==================== */
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-card: #16161f;
+            --bg-card-hover: #1c1c28;
+            --bg-elevated: #1e1e2a;
+            --text-primary: #f0f0f5;
+            --text-secondary: #a0a0b8;
+            --text-muted: #6a6a82;
+            --accent-purple: #8b5cf6;
+            --accent-blue: #3b82f6;
+            --accent-cyan: #06b6d4;
+            --accent-green: #10b981;
+            --accent-pink: #ec4899;
+            --accent-orange: #f59e0b;
+            --gradient-primary: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 50%, #06b6d4 100%);
+            --gradient-hero: linear-gradient(180deg, rgba(139,92,246,0.15) 0%, rgba(59,130,246,0.08) 50%, transparent 100%);
+            --gradient-card: linear-gradient(135deg, rgba(139,92,246,0.08) 0%, rgba(59,130,246,0.04) 100%);
+            --border-subtle: rgba(255,255,255,0.06);
+            --border-accent: rgba(139,92,246,0.3);
+            --shadow-glow: 0 0 60px rgba(139,92,246,0.15);
+            --shadow-card: 0 4px 24px rgba(0,0,0,0.3);
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 24px;
+            --font-display: 'Space Grotesk', 'Noto Sans SC', sans-serif;
+            --font-body: 'Noto Sans SC', 'Space Grotesk', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        /* ==================== Reset & Base ==================== */
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html {
+            scroll-behavior: smooth;
+            font-size: 16px;
+        }
+
+        body {
+            font-family: var(--font-body);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        a { color: inherit; text-decoration: none; }
+        button { border: none; cursor: pointer; font-family: inherit; }
+        img { max-width: 100%; display: block; }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* ==================== Noise Overlay ==================== */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        /* ==================== Navigation ==================== */
+        .nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            padding: 16px 0;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .nav.scrolled {
+            background: rgba(10, 10, 15, 0.85);
+            backdrop-filter: blur(20px) saturate(180%);
+            border-bottom: 1px solid var(--border-subtle);
+            padding: 10px 0;
+        }
+
+        .nav-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .nav-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-size: 1.35rem;
+            letter-spacing: -0.02em;
+        }
+
+        .nav-logo-icon {
+            width: 36px;
+            height: 36px;
+            background: var(--gradient-primary);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            box-shadow: 0 0 20px rgba(139,92,246,0.3);
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 32px;
+            list-style: none;
+        }
+
+        .nav-links a {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            transition: color 0.3s;
+            font-weight: 500;
+        }
+
+        .nav-links a:hover { color: var(--text-primary); }
+
+        .nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .btn-ghost {
+            padding: 8px 20px;
+            border-radius: var(--radius-sm);
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            background: transparent;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+
+        .btn-ghost:hover {
+            color: var(--text-primary);
+            background: rgba(255,255,255,0.05);
+        }
+
+        .btn-primary {
+            padding: 10px 24px;
+            border-radius: var(--radius-sm);
+            font-size: 0.9rem;
+            color: #fff;
+            background: var(--gradient-primary);
+            font-weight: 600;
+            transition: all 0.3s;
+            box-shadow: 0 0 20px rgba(139,92,246,0.25);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 0 30px rgba(139,92,246,0.4);
+        }
+
+        /* ==================== Hero Section ==================== */
+        .hero {
+            position: relative;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 120px 24px 80px;
+            overflow: hidden;
+        }
+
+        .hero-bg {
+            position: absolute;
+            inset: 0;
+            background: var(--gradient-hero);
+            z-index: 0;
+        }
+
+        .hero-orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.4;
+            animation: orbFloat 8s ease-in-out infinite;
+        }
+
+        .hero-orb-1 {
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(139,92,246,0.3), transparent 70%);
+            top: -100px;
+            right: -100px;
+            animation-delay: 0s;
+        }
+
+        .hero-orb-2 {
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(59,130,246,0.25), transparent 70%);
+            bottom: -50px;
+            left: -100px;
+            animation-delay: -3s;
+        }
+
+        .hero-orb-3 {
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, rgba(6,182,212,0.2), transparent 70%);
+            top: 40%;
+            left: 50%;
+            animation-delay: -5s;
+        }
+
+        @keyframes orbFloat {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(30px, -20px) scale(1.05); }
+            66% { transform: translate(-20px, 15px) scale(0.95); }
+        }
+
+        .hero-grid {
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(139,92,246,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(139,92,246,0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+            mask-image: radial-gradient(ellipse at center, black 30%, transparent 70%);
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            max-width: 860px;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 16px 6px 8px;
+            background: rgba(139,92,246,0.1);
+            border: 1px solid rgba(139,92,246,0.2);
+            border-radius: 100px;
+            font-size: 0.82rem;
+            color: var(--accent-purple);
+            margin-bottom: 32px;
+            animation: fadeInUp 0.8s ease-out;
+        }
+
+        .hero-badge-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent-green);
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
+        }
+
+        .hero h1 {
+            font-family: var(--font-display);
+            font-size: clamp(2.8rem, 6vw, 4.5rem);
+            font-weight: 700;
+            line-height: 1.08;
+            letter-spacing: -0.03em;
+            margin-bottom: 24px;
+            animation: fadeInUp 0.8s ease-out 0.1s both;
+        }
+
+        .hero h1 .gradient-text {
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-subtitle {
+            font-size: 1.15rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto 40px;
+            line-height: 1.7;
+            animation: fadeInUp 0.8s ease-out 0.2s both;
+        }
+
+        .hero-actions {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            animation: fadeInUp 0.8s ease-out 0.3s both;
+        }
+
+        .btn-hero {
+            padding: 14px 32px;
+            border-radius: var(--radius-md);
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .btn-hero-primary {
+            color: #fff;
+            background: var(--gradient-primary);
+            box-shadow: 0 0 30px rgba(139,92,246,0.3);
+        }
+
+        .btn-hero-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 50px rgba(139,92,246,0.5);
+        }
+
+        .btn-hero-secondary {
+            color: var(--text-primary);
+            background: rgba(255,255,255,0.06);
+            border: 1px solid var(--border-subtle);
+        }
+
+        .btn-hero-secondary:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: rgba(255,255,255,0.15);
+        }
+
+        .hero-stats {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 48px;
+            margin-top: 64px;
+            animation: fadeInUp 0.8s ease-out 0.4s both;
+        }
+
+        .hero-stat {
+            text-align: center;
+        }
+
+        .hero-stat-value {
+            font-family: var(--font-display);
+            font-size: 1.8rem;
+            font-weight: 700;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-stat-label {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(24px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ==================== Brands Section ==================== */
+        .brands {
+            padding: 60px 0;
+            border-top: 1px solid var(--border-subtle);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .brands-label {
+            text-align: center;
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 32px;
+        }
+
+        .brands-grid {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 48px;
+            flex-wrap: wrap;
+            opacity: 0.4;
+        }
+
+        .brand-item {
+            font-family: var(--font-display);
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            transition: opacity 0.3s;
+        }
+
+        .brand-item:hover { opacity: 1.5; }
+
+        /* ==================== Section Common ==================== */
+        .section {
+            padding: 100px 0;
+        }
+
+        .section-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.82rem;
+            color: var(--accent-purple);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .section-label::before {
+            content: '';
+            width: 24px;
+            height: 2px;
+            background: var(--accent-purple);
+            border-radius: 1px;
+        }
+
+        .section-title {
+            font-family: var(--font-display);
+            font-size: clamp(2rem, 4vw, 3rem);
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            line-height: 1.15;
+            margin-bottom: 16px;
+        }
+
+        .section-desc {
+            font-size: 1.05rem;
+            color: var(--text-secondary);
+            max-width: 560px;
+            line-height: 1.7;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 64px;
+        }
+
+        .section-header .section-desc {
+            margin: 0 auto;
+        }
+
+        /* ==================== How It Works ==================== */
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 32px;
+            position: relative;
+        }
+
+        .steps::before {
+            content: '';
+            position: absolute;
+            top: 60px;
+            left: 15%;
+            right: 15%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--border-accent), transparent);
+        }
+
+        .step-card {
+            text-align: center;
+            padding: 40px 24px;
+            position: relative;
+        }
+
+        .step-number {
+            width: 56px;
+            height: 56px;
+            margin: 0 auto 24px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-display);
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--accent-purple);
+            position: relative;
+            z-index: 1;
+        }
+
+        .step-card:nth-child(1) .step-number {
+            background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(139,92,246,0.05));
+            border-color: rgba(139,92,246,0.3);
+        }
+
+        .step-card:nth-child(2) .step-number {
+            background: linear-gradient(135deg, rgba(59,130,246,0.15), rgba(59,130,246,0.05));
+            border-color: rgba(59,130,246,0.3);
+            color: var(--accent-blue);
+        }
+
+        .step-card:nth-child(3) .step-number {
+            background: linear-gradient(135deg, rgba(6,182,212,0.15), rgba(6,182,212,0.05));
+            border-color: rgba(6,182,212,0.3);
+            color: var(--accent-cyan);
+        }
+
+        .step-title {
+            font-family: var(--font-display);
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .step-desc {
+            font-size: 0.92rem;
+            color: var(--text-secondary);
+            line-height: 1.65;
+        }
+
+        /* ==================== Chat Demo Section ==================== */
+        .chat-section {
+            position: relative;
+        }
+
+        .chat-demo-wrapper {
+            position: relative;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .chat-demo {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-xl);
+            overflow: hidden;
+            box-shadow: var(--shadow-glow), var(--shadow-card);
+        }
+
+        .chat-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border-subtle);
+            background: rgba(255,255,255,0.02);
+        }
+
+        .chat-header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .chat-header-dots {
+            display: flex;
+            gap: 6px;
+        }
+
+        .chat-header-dots span {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .chat-header-dots span:nth-child(1) { background: #ef4444; }
+        .chat-header-dots span:nth-child(2) { background: #f59e0b; }
+        .chat-header-dots span:nth-child(3) { background: #10b981; }
+
+        .chat-header-title {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+        }
+
+        .chat-header-badge {
+            padding: 4px 12px;
+            background: rgba(139,92,246,0.1);
+            border: 1px solid rgba(139,92,246,0.2);
+            border-radius: 100px;
+            font-size: 0.75rem;
+            color: var(--accent-purple);
+            font-weight: 500;
+        }
+
+        .chat-body {
+            padding: 32px 24px;
+            min-height: 420px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .chat-msg {
+            display: flex;
+            gap: 12px;
+            animation: msgAppear 0.5s ease-out both;
+        }
+
+        .chat-msg:nth-child(1) { animation-delay: 0.2s; }
+        .chat-msg:nth-child(2) { animation-delay: 0.8s; }
+        .chat-msg:nth-child(3) { animation-delay: 1.4s; }
+        .chat-msg:nth-child(4) { animation-delay: 2.0s; }
+
+        @keyframes msgAppear {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .chat-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            flex-shrink: 0;
+        }
+
+        .chat-avatar-user {
+            background: linear-gradient(135deg, rgba(59,130,246,0.2), rgba(139,92,246,0.2));
+            border: 1px solid rgba(139,92,246,0.2);
+        }
+
+        .chat-avatar-ai {
+            background: var(--gradient-primary);
+            box-shadow: 0 0 12px rgba(139,92,246,0.3);
+        }
+
+        .chat-bubble {
+            flex: 1;
+        }
+
+        .chat-bubble-user {
+            background: rgba(59,130,246,0.08);
+            border: 1px solid rgba(59,130,246,0.12);
+            border-radius: 4px 16px 16px 16px;
+            padding: 14px 18px;
+            font-size: 0.92rem;
+            color: var(--text-primary);
+            max-width: 80%;
+        }
+
+        .chat-bubble-ai {
+            max-width: 90%;
+        }
+
+        .chat-bubble-ai-text {
+            font-size: 0.92rem;
+            color: var(--text-secondary);
+            line-height: 1.7;
+            margin-bottom: 16px;
+        }
+
+        .chat-bubble-ai-text strong {
+            color: var(--text-primary);
+        }
+
+        /* Mini chart inside chat */
+        .mini-chart {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            margin-top: 8px;
+        }
+
+        .mini-chart-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .mini-chart-title {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .mini-chart-badge {
+            font-size: 0.72rem;
+            padding: 3px 10px;
+            background: rgba(16,185,129,0.1);
+            color: var(--accent-green);
+            border-radius: 100px;
+            font-weight: 500;
+        }
+
+        .mini-bars {
+            display: flex;
+            align-items: flex-end;
+            gap: 8px;
+            height: 100px;
+        }
+
+        .mini-bar {
+            flex: 1;
+            border-radius: 4px 4px 0 0;
+            transition: height 1s ease-out;
+            position: relative;
+        }
+
+        .mini-bar::after {
+            content: attr(data-label);
+            position: absolute;
+            bottom: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+
+        .mini-bar:nth-child(1) { background: linear-gradient(to top, rgba(139,92,246,0.6), rgba(139,92,246,0.3)); height: 45%; }
+        .mini-bar:nth-child(2) { background: linear-gradient(to top, rgba(139,92,246,0.6), rgba(139,92,246,0.3)); height: 62%; }
+        .mini-bar:nth-child(3) { background: linear-gradient(to top, rgba(139,92,246,0.6), rgba(139,92,246,0.3)); height: 55%; }
+        .mini-bar:nth-child(4) { background: linear-gradient(to top, rgba(139,92,246,0.6), rgba(139,92,246,0.3)); height: 78%; }
+        .mini-bar:nth-child(5) { background: linear-gradient(to top, rgba(139,92,246,0.6), rgba(139,92,246,0.3)); height: 70%; }
+        .mini-bar:nth-child(6) { background: linear-gradient(to top, rgba(59,130,246,0.6), rgba(59,130,246,0.3)); height: 88%; }
+        .mini-bar:nth-child(7) { background: linear-gradient(to top, rgba(59,130,246,0.6), rgba(59,130,246,0.3)); height: 95%; }
+
+        .mini-chart-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 28px;
+            padding: 0 4px;
+        }
+
+        .mini-chart-labels span {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            flex: 1;
+            text-align: center;
+        }
+
+        .chat-input-area {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px 24px;
+            border-top: 1px solid var(--border-subtle);
+            background: rgba(255,255,255,0.01);
+        }
+
+        .chat-input {
+            flex: 1;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            padding: 12px 16px;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            font-family: var(--font-body);
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .chat-input::placeholder { color: var(--text-muted); }
+        .chat-input:focus { border-color: var(--border-accent); }
+
+        .chat-send-btn {
+            width: 44px;
+            height: 44px;
+            background: var(--gradient-primary);
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            box-shadow: 0 0 15px rgba(139,92,246,0.25);
+        }
+
+        .chat-send-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 25px rgba(139,92,246,0.4);
+        }
+
+        .chat-send-btn svg {
+            width: 18px;
+            height: 18px;
+            fill: white;
+        }
+
+        /* ==================== Features Grid ==================== */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+
+        .feature-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            padding: 32px;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--gradient-primary);
+            opacity: 0;
+            transition: opacity 0.4s;
+        }
+
+        .feature-card:hover {
+            background: var(--bg-card-hover);
+            border-color: rgba(139,92,246,0.15);
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+        }
+
+        .feature-card:hover::before { opacity: 1; }
+
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            font-size: 1.3rem;
+        }
+
+        .feature-card:nth-child(1) .feature-icon { background: rgba(139,92,246,0.12); }
+        .feature-card:nth-child(2) .feature-icon { background: rgba(59,130,246,0.12); }
+        .feature-card:nth-child(3) .feature-icon { background: rgba(6,182,212,0.12); }
+        .feature-card:nth-child(4) .feature-icon { background: rgba(16,185,129,0.12); }
+        .feature-card:nth-child(5) .feature-icon { background: rgba(236,72,153,0.12); }
+        .feature-card:nth-child(6) .feature-icon { background: rgba(245,158,11,0.12); }
+
+        .feature-title {
+            font-family: var(--font-display);
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .feature-desc {
+            font-size: 0.88rem;
+            color: var(--text-secondary);
+            line-height: 1.65;
+        }
+
+        /* ==================== Data Sources ==================== */
+        .datasources {
+            background: var(--bg-secondary);
+        }
+
+        .datasource-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+        }
+
+        .datasource-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            padding: 28px 24px;
+            text-align: center;
+            transition: all 0.3s;
+            cursor: default;
+        }
+
+        .datasource-card:hover {
+            border-color: rgba(139,92,246,0.2);
+            transform: translateY(-2px);
+        }
+
+        .datasource-icon {
+            width: 52px;
+            height: 52px;
+            margin: 0 auto 16px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        .datasource-card:nth-child(1) .datasource-icon { background: rgba(16,185,129,0.1); }
+        .datasource-card:nth-child(2) .datasource-icon { background: rgba(59,130,246,0.1); }
+        .datasource-card:nth-child(3) .datasource-icon { background: rgba(239,68,68,0.1); }
+        .datasource-card:nth-child(4) .datasource-icon { background: rgba(245,158,11,0.1); }
+
+        .datasource-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+            margin-bottom: 6px;
+        }
+
+        .datasource-desc {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        /* ==================== Templates Section ==================== */
+        .templates-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+
+        .template-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .template-card:hover {
+            border-color: rgba(139,92,246,0.2);
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+        }
+
+        .template-preview {
+            height: 160px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .template-card:nth-child(1) .template-preview { background: linear-gradient(135deg, rgba(139,92,246,0.2), rgba(59,130,246,0.1)); }
+        .template-card:nth-child(2) .template-preview { background: linear-gradient(135deg, rgba(59,130,246,0.2), rgba(6,182,212,0.1)); }
+        .template-card:nth-child(3) .template-preview { background: linear-gradient(135deg, rgba(6,182,212,0.2), rgba(16,185,129,0.1)); }
+        .template-card:nth-child(4) .template-preview { background: linear-gradient(135deg, rgba(16,185,129,0.2), rgba(245,158,11,0.1)); }
+        .template-card:nth-child(5) .template-preview { background: linear-gradient(135deg, rgba(236,72,153,0.2), rgba(139,92,246,0.1)); }
+        .template-card:nth-child(6) .template-preview { background: linear-gradient(135deg, rgba(245,158,11,0.2), rgba(239,68,68,0.1)); }
+
+        .template-preview-content {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .template-preview-icon {
+            font-size: 2rem;
+            opacity: 0.7;
+        }
+
+        .template-preview-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+        }
+
+        .template-info {
+            padding: 20px;
+        }
+
+        .template-tag {
+            display: inline-block;
+            padding: 3px 10px;
+            background: rgba(139,92,246,0.1);
+            border-radius: 100px;
+            font-size: 0.72rem;
+            color: var(--accent-purple);
+            font-weight: 500;
+            margin-bottom: 10px;
+        }
+
+        .template-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+            margin-bottom: 6px;
+        }
+
+        .template-desc {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        /* ==================== Testimonials ==================== */
+        .testimonials-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
+        }
+
+        .testimonial-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            padding: 32px;
+            transition: all 0.3s;
+        }
+
+        .testimonial-card:hover {
+            border-color: rgba(139,92,246,0.15);
+        }
+
+        .testimonial-quote {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            line-height: 1.75;
+            margin-bottom: 24px;
+            font-style: italic;
+        }
+
+        .testimonial-quote::before {
+            content: '"';
+            font-size: 2rem;
+            color: var(--accent-purple);
+            line-height: 0;
+            vertical-align: -0.4em;
+            margin-right: 4px;
+        }
+
+        .testimonial-author {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .testimonial-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.85rem;
+            color: white;
+        }
+
+        .testimonial-card:nth-child(1) .testimonial-avatar { background: linear-gradient(135deg, #8b5cf6, #6366f1); }
+        .testimonial-card:nth-child(2) .testimonial-avatar { background: linear-gradient(135deg, #3b82f6, #06b6d4); }
+
+        .testimonial-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .testimonial-role {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        /* ==================== Security Section ==================== */
+        .security {
+            background: var(--bg-secondary);
+        }
+
+        .security-content {
+            display: flex;
+            align-items: center;
+            gap: 64px;
+        }
+
+        .security-visual {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .security-shield {
+            width: 200px;
+            height: 200px;
+            position: relative;
+        }
+
+        .security-shield-ring {
+            position: absolute;
+            inset: 0;
+            border: 2px solid rgba(139,92,246,0.15);
+            border-radius: 50%;
+            animation: shieldPulse 3s ease-in-out infinite;
+        }
+
+        .security-shield-ring:nth-child(2) {
+            inset: 20px;
+            animation-delay: -1s;
+            border-color: rgba(59,130,246,0.15);
+        }
+
+        .security-shield-ring:nth-child(3) {
+            inset: 40px;
+            animation-delay: -2s;
+            border-color: rgba(6,182,212,0.15);
+        }
+
+        .security-shield-center {
+            position: absolute;
+            inset: 60px;
+            background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(59,130,246,0.1));
+            border: 1px solid rgba(139,92,246,0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+        }
+
+        @keyframes shieldPulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.5; }
+        }
+
+        .security-info {
+            flex: 1;
+        }
+
+        .security-badges {
+            display: flex;
+            gap: 16px;
+            margin-top: 32px;
+        }
+
+        .security-badge {
+            padding: 10px 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .security-badge-icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+        }
+
+        .security-badge:nth-child(1) .security-badge-icon { background: rgba(16,185,129,0.15); }
+        .security-badge:nth-child(2) .security-badge-icon { background: rgba(59,130,246,0.15); }
+        .security-badge:nth-child(3) .security-badge-icon { background: rgba(139,92,246,0.15); }
+
+        /* ==================== CTA Section ==================== */
+        .cta {
+            text-align: center;
+            position: relative;
+        }
+
+        .cta-glow {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 600px;
+            height: 400px;
+            background: radial-gradient(ellipse, rgba(139,92,246,0.1), transparent 70%);
+            pointer-events: none;
+        }
+
+        .cta-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .cta h2 {
+            font-family: var(--font-display);
+            font-size: clamp(2rem, 4vw, 3rem);
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            margin-bottom: 16px;
+        }
+
+        .cta p {
+            font-size: 1.05rem;
+            color: var(--text-secondary);
+            max-width: 500px;
+            margin: 0 auto 32px;
+            line-height: 1.7;
+        }
+
+        /* ==================== Footer ==================== */
+        .footer {
+            padding: 64px 0 32px;
+            border-top: 1px solid var(--border-subtle);
+        }
+
+        .footer-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 48px;
+            margin-bottom: 48px;
+        }
+
+        .footer-brand-desc {
+            font-size: 0.88rem;
+            color: var(--text-muted);
+            line-height: 1.7;
+            margin-top: 16px;
+            max-width: 280px;
+        }
+
+        .footer-col-title {
+            font-weight: 600;
+            font-size: 0.88rem;
+            margin-bottom: 20px;
+            color: var(--text-primary);
+        }
+
+        .footer-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .footer-links a {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            transition: color 0.3s;
+        }
+
+        .footer-links a:hover { color: var(--text-primary); }
+
+        .footer-bottom {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-top: 32px;
+            border-top: 1px solid var(--border-subtle);
+            font-size: 0.82rem;
+            color: var(--text-muted);
+        }
+
+        /* ==================== Scroll Animations ==================== */
+        .reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* ==================== Mobile Responsive ==================== */
+        @media (max-width: 1024px) {
+            .features-grid,
+            .templates-grid { grid-template-columns: repeat(2, 1fr); }
+            .datasource-grid { grid-template-columns: repeat(2, 1fr); }
+            .security-content { flex-direction: column; text-align: center; }
+            .security-badges { justify-content: center; }
+            .footer-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        @media (max-width: 768px) {
+            .nav-links { display: none; }
+            .hero-stats { flex-direction: column; gap: 24px; }
+            .steps { grid-template-columns: 1fr; }
+            .steps::before { display: none; }
+            .features-grid,
+            .templates-grid,
+            .testimonials-grid { grid-template-columns: 1fr; }
+            .datasource-grid { grid-template-columns: repeat(2, 1fr); }
+            .footer-grid { grid-template-columns: 1fr; gap: 32px; }
+            .hero-actions { flex-direction: column; }
+            .security-badges { flex-direction: column; align-items: center; }
+        }
+
+        /* ==================== Typing Animation ==================== */
+        .typing-indicator {
+            display: flex;
+            gap: 4px;
+            padding: 8px 0;
+        }
+
+        .typing-indicator span {
+            width: 6px;
+            height: 6px;
+            background: var(--accent-purple);
+            border-radius: 50%;
+            animation: typing 1.4s ease-in-out infinite;
+        }
+
+        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+            30% { transform: translateY(-6px); opacity: 1; }
+        }
+
+        /* ==================== Floating Particles ==================== */
+        .particles {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+
+        .particle {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: rgba(139,92,246,0.3);
+            border-radius: 50%;
+            animation: particleFloat linear infinite;
+        }
+
+        @keyframes particleFloat {
+            0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { transform: translateY(-10vh) rotate(720deg); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Floating Particles -->
+    <div class="particles" id="particles"></div>
+
+    <!-- Navigation -->
+    <nav class="nav" id="nav">
+        <div class="container nav-inner">
+            <a href="#" class="nav-logo">
+                <div class="nav-logo-icon">⚡</div>
+                <span>DataMind</span>
+            </a>
+            <ul class="nav-links">
+                <li><a href="#features">功能</a></li>
+                <li><a href="#demo">演示</a></li>
+                <li><a href="#templates">模板</a></li>
+                <li><a href="#security">安全</a></li>
+                <li><a href="#pricing">定价</a></li>
+            </ul>
+            <div class="nav-actions">
+                <button class="btn-ghost">登录</button>
+                <button class="btn-primary">免费开始</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-bg"></div>
+        <div class="hero-orb hero-orb-1"></div>
+        <div class="hero-orb hero-orb-2"></div>
+        <div class="hero-orb hero-orb-3"></div>
+        <div class="hero-grid"></div>
+        <div class="hero-content">
+            <div class="hero-badge">
+                <span class="hero-badge-dot"></span>
+                全新 AI 数据分析引擎已上线
+            </div>
+            <h1>
+                你的 <span class="gradient-text">AI 数据分析师</span><br>
+                让数据说话
+            </h1>
+            <p class="hero-subtitle">
+                连接你的数据源，用自然语言提问，秒级获得深度洞察。无需编写代码，从电子表格到数据库，一切尽在掌握。
+            </p>
+            <div class="hero-actions">
+                <button class="btn-hero btn-hero-primary">开始免费分析 →</button>
+                <button class="btn-hero btn-hero-secondary">观看演示</button>
+            </div>
+            <div class="hero-stats">
+                <div class="hero-stat">
+                    <div class="hero-stat-value">200万+</div>
+                    <div class="hero-stat-label">活跃用户</div>
+                </div>
+                <div class="hero-stat">
+                    <div class="hero-stat-value">50亿+</div>
+                    <div class="hero-stat-label">分析数据行</div>
+                </div>
+                <div class="hero-stat">
+                    <div class="hero-stat-value">99.9%</div>
+                    <div class="hero-stat-label">服务可用性</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Brands -->
+    <section class="brands">
+        <div class="container">
+            <p class="brands-label">受到全球领先企业的信赖</p>
+            <div class="brands-grid">
+                <span class="brand-item">Microsoft</span>
+                <span class="brand-item">Google</span>
+                <span class="brand-item">Amazon</span>
+                <span class="brand-item">Meta</span>
+                <span class="brand-item">Tesla</span>
+                <span class="brand-item">Stripe</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works -->
+    <section class="section" id="how-it-works">
+        <div class="container">
+            <div class="section-header reveal">
+                <div class="section-label">使用流程</div>
+                <h2 class="section-title">三步完成数据分析</h2>
+                <p class="section-desc">从数据连接到洞察输出，全程无需编写一行代码</p>
+            </div>
+            <div class="steps">
+                <div class="step-card reveal">
+                    <div class="step-number">1</div>
+                    <h3 class="step-title">连接数据源</h3>
+                    <p class="step-desc">上传 Excel、CSV、PDF 文件，或连接数据库。支持 Google Sheets、Postgres 等多种数据源。</p>
+                </div>
+                <div class="step-card reveal">
+                    <div class="step-number">2</div>
+                    <h3 class="step-title">自然语言提问</h3>
+                    <p class="step-desc">用日常语言描述你的分析需求，AI 自动理解意图并选择最佳分析方法。</p>
+                </div>
+                <div class="step-card reveal">
+                    <div class="step-number">3</div>
+                    <h3 class="step-title">获取即时结果</h3>
+                    <p class="step-desc">秒级生成可视化图表、数据表格和完整分析报告，支持导出分享。</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Chat Demo -->
+    <section class="section chat-section" id="demo">
+        <div class="container">
+            <div class="section-header reveal">
+                <div class="section-label">智能对话</div>
+                <h2 class="section-title">与你的数据对话</h2>
+                <p class="section-desc">从电子表格到数据库，用自然语言提问，获得即时洞察</p>
+            </div>
+            <div class="chat-demo-wrapper reveal">
+                <div class="chat-demo">
+                    <div class="chat-header">
+                        <div class="chat-header-left">
+                            <div class="chat-header-dots">
+                                <span></span><span></span><span></span>
+                            </div>
+                            <span class="chat-header-title">DataMind — 数据分析工作台</span>
+                        </div>
+                        <span class="chat-header-badge">AI 就绪</span>
+                    </div>
+                    <div class="chat-body">
+                        <!-- User message -->
+                        <div class="chat-msg">
+                            <div class="chat-avatar chat-avatar-user">👤</div>
+                            <div class="chat-bubble">
+                                <div class="chat-bubble-user">帮我分析这份销售数据，找出过去6个月的趋势和关键增长点</div>
+                            </div>
+                        </div>
+                        <!-- AI response -->
+                        <div class="chat-msg">
+                            <div class="chat-avatar chat-avatar-ai">⚡</div>
+                            <div class="chat-bubble chat-bubble-ai">
+                                <div class="chat-bubble-ai-text">
+                                    已完成对销售数据的全面分析。以下是关键发现：<br><br>
+                                    <strong>📈 整体趋势：</strong>过去6个月销售额呈持续上升趋势，月均增长率达 <strong>12.3%</strong>。<br>
+                                    <strong>🔥 增长亮点：</strong>线上渠道贡献了 <strong>67%</strong> 的新增收入，其中移动端占比最高。<br>
+                                    <strong>💡 建议：</strong>建议加大移动端投放力度，同时关注华东地区的市场渗透机会。
+                                </div>
+                                <div class="mini-chart">
+                                    <div class="mini-chart-header">
+                                        <span class="mini-chart-title">月度销售额趋势</span>
+                                        <span class="mini-chart-badge">↑ 12.3% 增长</span>
+                                    </div>
+                                    <div class="mini-bars">
+                                        <div class="mini-bar" data-label="1月"></div>
+                                        <div class="mini-bar" data-label="2月"></div>
+                                        <div class="mini-bar" data-label="3月"></div>
+                                        <div class="mini-bar" data-label="4月"></div>
+                                        <div class="mini-bar" data-label="5月"></div>
+                                        <div class="mini-bar" data-label="6月"></div>
+                                        <div class="mini-bar" data-label="7月"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- User follow-up -->
+                        <div class="chat-msg">
+                            <div class="chat-avatar chat-avatar-user">👤</div>
+                            <div class="chat-bubble">
+                                <div class="chat-bubble-user">能否预测下个季度的销售额？</div>
+                            </div>
+                        </div>
+                        <!-- AI prediction -->
+                        <div class="chat-msg">
+                            <div class="chat-avatar chat-avatar-ai">⚡</div>
+                            <div class="chat-bubble chat-bubble-ai">
+                                <div class="chat-bubble-ai-text">
+                                    基于历史数据的 <strong>ARIMA 时序模型</strong> 预测：<br><br>
+                                    📊 下季度预计总销售额：<strong>¥2,340万</strong>（置信区间 ¥2,100万 - ¥2,580万）<br>
+                                    📈 预计环比增长：<strong>15.8%</strong><br>
+                                    ⚠️ 风险提示：季节性波动可能影响11月数据，建议预留10%的缓冲空间
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="chat-input-area">
+                        <input type="text" class="chat-input" placeholder="输入你的分析需求，例如：帮我找出销量Top10的产品...">
+                        <button class="chat-send-btn">
+                            <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features -->
+    <section class="section" id="features">
+        <div class="container">
+            <div class="section-header reveal">
+                <div class="section-label">核心功能</div>
+                <h2 class="section-title">为数据分析而生</h2>
+                <p class="section-desc">专为数据洞察打造的 AI 引擎，覆盖从数据清洗到预测建模的全流程</p>
+            </div>
+            <div class="features-grid">
+                <div class="feature-card reveal">
+                    <div class="feature-icon">💬</div>
+                    <h3 class="feature-title">自然语言交互</h3>
+                    <p class="feature-desc">用日常语言提问，AI 自动理解业务意图，生成精准分析。支持上下文记忆，越用越懂你。</p>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon">📊</div>
+                    <h3 class="feature-title">即时可视化</h3>
+                    <p class="feature-desc">秒级生成专业图表，支持折线图、柱状图、散点图、热力图等多种可视化类型。</p>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon">🔗</div>
+                    <h3 class="feature-title">多数据源整合</h3>
+                    <p class="feature-desc">连接 Excel、CSV、PDF、Google Sheets、Postgres 等多种数据源，统一分析视角。</p>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon">🤖</div>
+                    <h3 class="feature-title">预测建模</h3>
+                    <p class="feature-desc">内置回归分析、时间序列预测、分类模型等高级分析能力，挖掘数据深层价值。</p>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon">📋</div>
+                    <h3 class="feature-title">自动化报告</h3>
+                    <p class="feature-desc">设定定时任务，自动生成分析报告并通过邮件或 Slack 推送，团队协作更高效。</p>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon">🧹</div>
+                    <h3 class="feature-title">智能数据清洗</h3>
+                    <p class="feature-desc">自动检测异常值、处理缺失数据、标准化格式，让数据分析从干净的数据开始。</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Data Sources -->
+    <section class="section datasources">
+        <div class="container">
+            <div class="section-header reveal">
+                <div class="section-label">数据连接</div>
+                <h2 class="section-title">连接所有数据源</h2>
+                <p class="section-desc">支持主流文件格式和数据库，一站式整合你的数据资产</p>
+            </div>
+            <div class="datasource-grid">
+                <div class="datasource-card reveal">
+                    <div class="datasource-icon">📗</div>
+                    <div class="datasource-name">Excel / CSV</div>
+                    <div class="datasource-desc">支持 .xlsx .xls .csv 格式</div>
+                </div>
+                <div class="datasource-card reveal">
+                    <div class="datasource-icon">📄</div>
+                    <div class="datasource-name">PDF 文档</div>
+                    <div class="datasource-desc">智能提取表格与数据</div>
+                </div>
+                <div class="datasource-card reveal">
+                    <div class="datasource-icon">🗄️</div>
+                    <div class="datasource-name">Postgres / MySQL</div>
+                    <div class="datasource-desc">直连数据库实时查询</div>
+                </div>
+                <div class="datasource-card reveal">
+                    <div class="datasource-icon">🌐</div>
+                    <div class="datasource-name">Google Sheets</div>
+                    <div class="datasource-desc">云端协作表格无缝接入</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Templates -->
+    <section class="section" id="templates">
+        <div class="container">
+            <div class="section-header reveal">
+                <div class="section-label">场景模板</div>
+                <h2 class="section-title">为每个角色量身定制</h2>
+                <p class="section-desc">预设分析模板，覆盖金融、营销、运营、科研等主流场景</p>
+            </div>
+            <div class="templates-grid">
+                <div class="template-card reveal">
+                    <div class="template-preview">
+                        <div class="template-preview-content">
+                            <div class="template-preview-icon">💰</div>
+                            <div class="template-preview-label">FINANCE</div>
+                        </div>
+                    </div>
+                    <div class="template-info">
+                        <span class="template-tag">金融分析</span>
+                        <h3 class="template-name">SaaS 公司资产负债表创建</h3>
+                        <p class="template-desc">自动生成财务报表，追踪收入、支出和现金流</p>
+                    </div>
+                </div>
+                <div class="template-card reveal">
+                    <div class="template-preview">
+                        <div class="template-preview-content">
+                            <div class="template-preview-icon">📢</div>
+                            <div class="template-preview-label">MARKETING</div>
+                        </div>
+                    </div>
+                    <div class="template-info">
+                        <span class="template-tag">市场营销</span>
+                        <h3 class="template-name">获客渠道效率分析</h3>
+                        <p class="template-desc">对比各渠道 ROI，优化营销预算分配策略</p>
+                    </div>
+                </div>
+                <div class="template-card reveal">
+                    <div class="template-preview">
+                        <div class="template-preview-content">
+                            <div class="template-preview-icon">⚙️</div>
+                            <div class="template-preview-label">OPERATIONS</div>
+                        </div>
+                    </div>
+                    <div class="template-info">
+                        <span class="template-tag">运营管理</span>
+                        <h3 class="template-name">需求预测与库存优化</h3>
+                        <p class="template-desc">基于历史数据预测需求，降低库存成本</p>
+                    </div>
+                </div>
+                <div class="template-card reveal">
+                    <div class="template-preview">
+                        <div class="template-preview-content">
+                            <div class="template-preview-icon">📈</div>
+                            <div class="template-preview-label">GROWTH</div>
+                        </div>
+                    </div>
+                    <div class="template-info">
+                        <span class="template-tag">业务增长</span>
+                        <h3 class="template-name">现金流预测与预算规划</h3>
+                        <p class="template-desc">预测未来现金流，辅助战略决策</p>
+                    </div>
+                </div>
+                <div class="template-card reveal">
+                    <div class="template-preview">
+                        <div class="template-preview-content">
+                            <div class="template-preview-icon">🔬</div>
+                            <div class="template-preview-label">RESEARCH</div>
+                        </div>
+                    </div>
+                    <div class="template-info">
+                        <span class="template-tag">科学研究</span>
+                        <h3 class="template-name">基因数据集相关性矩阵</h3>
+                        <p class="template-desc">大规模数据集的特征关联分析与可视化</p>
+                    </div>
+                </div>
+                <div class="template-card reveal">
+                    <div class="template-preview">
+                        <div class="template-preview-content">
+                            <div class="template-preview-icon">🧠</div>
+                            <div class="template-preview-label">DATA SCIENCE</div>
+                        </div>
+                    </div>
+                    <div class="template-info">
+                        <span class="template-tag">数据科学</span>
+                        <h3 class="template-name">数据清洗与预处理</h3>
+                        <p class="template-desc">自动化数据质量检测与标准化处理</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Testimonials -->
+    <section class="section">
+        <div class="container">
+            <div class="section-header reveal">
+                <div class="section-label">用户评价</div>
+                <h2 class="section-title">真实团队，真实成果</h2>
+                <p class="section-desc">听听来自不同行业的用户如何使用 DataMind 提升效率</p>
+            </div>
+            <div class="testimonials-grid">
+                <div class="testimonial-card reveal">
+                    <p class="testimonial-quote">DataMind 彻底改变了我们分析数据的方式。以前需要数据团队花一整天完成的报表，现在不到一小时就能搞定。它不仅快速，还能提供我们没想到的分析角度。</p>
+                    <div class="testimonial-author">
+                        <div class="testimonial-avatar">张</div>
+                        <div>
+                            <div class="testimonial-name">张明远</div>
+                            <div class="testimonial-role">增长负责人 · 星辰科技</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="testimonial-card reveal">
+                    <p class="testimonial-quote">作为非技术背景的产品经理，DataMind 让我能够独立完成数据分析。自然语言交互非常直观，生成的可视化图表质量堪比专业数据分析师的产出。</p>
+                    <div class="testimonial-author">
+                        <div class="testimonial-avatar">李</div>
+                        <div>
+                            <div class="testimonial-name">李思涵</div>
+                            <div class="testimonial-role">高级产品经理 · 云途教育</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Security -->
+    <section class="section security" id="security">
+        <div class="container">
+            <div class="security-content">
+                <div class="security-visual reveal">
+                    <div class="security-shield">
+                        <div class="security-shield-ring"></div>
+                        <div class="security-shield-ring"></div>
+                        <div class="security-shield-ring"></div>
+                        <div class="security-shield-center">🔒</div>
+                    </div>
+                </div>
+                <div class="security-info reveal">
+                    <div class="section-label">安全与合规</div>
+                    <h2 class="section-title">你的数据，始终安全</h2>
+                    <p class="section-desc" style="max-width: 480px;">
+                        数据全程加密传输与存储，绝不用于训练 AI 模型。符合行业领先的安全标准，让你安心分析。
+                    </p>
+                    <div class="security-badges">
+                        <div class="security-badge">
+                            <span class="security-badge-icon">✓</span>
+                            SOC 2 Type II
+                        </div>
+                        <div class="security-badge">
+                            <span class="security-badge-icon">✓</span>
+                            GDPR 合规
+                        </div>
+                        <div class="security-badge">
+                            <span class="security-badge-icon">✓</span>
+                            端到端加密
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing -->
+    <section class="section" id="pricing">
+        <div class="container">
+            <div class="section-header reveal">
+                <div class="section-label">定价方案</div>
+                <h2 class="section-title">选择适合你的方案</h2>
+                <p class="section-desc">从免费开始，按需升级</p>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; max-width: 960px; margin: 0 auto;">
+                <!-- Free Plan -->
+                <div class="feature-card reveal" style="text-align: center;">
+                    <div style="font-size: 0.82rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 16px;">免费版</div>
+                    <div style="font-family: var(--font-display); font-size: 2.5rem; font-weight: 700; margin-bottom: 8px;">¥0</div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 24px;">/月</div>
+                    <ul style="list-style: none; text-align: left; display: flex; flex-direction: column; gap: 12px; margin-bottom: 28px;">
+                        <li style="font-size: 0.88rem; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;"><span style="color: var(--accent-green);">✓</span> 每月 15 次对话</li>
+                        <li style="font-size: 0.88rem; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;"><span style="color: var(--accent-green);">✓</span> 基础图表生成</li>
+                        <li style="font-size: 0.88rem; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;"><span style="color: var(--accent-green);">✓</span> CSV 导出</li>
+                        <li style="font-size: 0.88rem; color: var(--text-muted); display: flex; align-items: center; gap: 8px;"><span style="opacity: 0.3;">✗</span> 预测建模</li>
+                        <li style="font-size: 0.88rem; color: var(--text-muted); display: flex; align-items: center; gap: 8px;"><span style="opacity: 0.3;">✗</span> 自动化报告</li>
+                    </ul>
+                    <button class="btn-hero btn-hero-secondary" style="width: 100%; font-size: 0.9rem; padding: 12px;">免费开始</button>
+                </div>
+                <!-- Pro Plan -->
+                <div class="feature-card reveal" style="text-align: center; border-color: rgba(139,92,246,0.3); position: relative;">
+                    <div style="position: absolute; top: -12px; left: 50%; transform: translateX(-50%); padding: 4px 16px; background: var(--gradient-primary); border-radius: 100px; font-size: 0.72rem; font-weight: 600; color: white;">最受欢迎</div>
+                    <div style="font-size: 0.82rem; color: var(--accent-purple); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 16px;">专业版</div>
+                    <div style="font-family: var(--font-display); font-size: 2.5rem; font-weight: 700; margin-bottom: 8px;">¥249</div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 24px;">/月</div>
+                    <ul style="list-style: none; text-align: left; display: flex; flex-direction: column; gap: 12px; margin-bottom: 28px;">
+                        <li style="font-size: 0.88rem; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;"><span style="color: var(--accent-green);">✓</span> 无限对话次数</li>
+                        <li style="font-size: 0.88rem; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;"><span style="color: var(--accent-green);">✓</span> 高级可视化图表</li>
+                        <li style="font-size: 0.88rem; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;"><span style="color: var(--accent-green);">✓</span> 预测建模</li>
+                        <li style="font-size: 0.88rem; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;"><span style="color: var(--accent-green);">✓</span> 多数据源连接</li>
+                        <li style="font-size: 0.88rem; color: var(--text-muted); display: flex; align-items: center; gap: 8px;"><span style="opacity: 0.3;">✗</span> 团队协作</li>
+                    </ul>
+                    <button class="btn-hero btn-hero-primary" style="width: 100%; font-size: 0.9rem; padding: 12px;">立即升级</button>
+                </div>
+                <!-- Enterprise Plan -->
+                <div class="feature-card reveal" style="text-align: center;">
+                    <div style="font-size: 0.82rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 16px;">企业版</div>
+                    <div style="font-family: var(--font-display); font-size: 2.5rem; font-weight: 700; margin-bottom: 8px;">定制</div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 24px;">按需定价</div>
+                    <ul style="list-style: none; text-align: left; display: flex; flex-direction: column; gap: 12px; margin-bottom: 28px;">
+                        <li style="font-size: 0.88rem; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;"><span style="color: var(--accent-green);">✓</span> 专业版全部功能</li>
+                        <li style="font-size: 0.88rem; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;"><span style="color: var(--accent-green);">✓</span> 团队协作空间</li>
+                        <li style="font-size: 0.88rem; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;"><span style="color: var(--accent-green);">✓</span> 自动化报告推送</li>
+                        <li style="font-size: 0.88rem; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;"><span style="color: var(--accent-green);">✓</span> Slack 集成</li>
+                        <li style="font-size: 0.88rem; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;"><span style="color: var(--accent-green);">✓</span> 专属客户成功经理</li>
+                    </ul>
+                    <button class="btn-hero btn-hero-secondary" style="width: 100%; font-size: 0.9rem; padding: 12px;">联系销售</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="section cta">
+        <div class="cta-glow"></div>
+        <div class="container cta-content reveal">
+            <h2>准备好让数据为你工作了吗？</h2>
+            <p>加入 200 万+ 用户，用 AI 重新定义数据分析体验。免费开始，无需信用卡。</p>
+            <button class="btn-hero btn-hero-primary">免费开始使用 →</button>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div>
+                    <a href="#" class="nav-logo" style="margin-bottom: 4px;">
+                        <div class="nav-logo-icon">⚡</div>
+                        <span>DataMind</span>
+                    </a>
+                    <p class="footer-brand-desc">AI 驱动的智能数据分析平台，让每个人都能轻松获得数据洞察。</p>
+                </div>
+                <div>
+                    <h4 class="footer-col-title">产品</h4>
+                    <ul class="footer-links">
+                        <li><a href="#">功能介绍</a></li>
+                        <li><a href="#">定价方案</a></li>
+                        <li><a href="#">场景模板</a></li>
+                        <li><a href="#">API 文档</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="footer-col-title">资源</h4>
+                    <ul class="footer-links">
+                        <li><a href="#">帮助中心</a></li>
+                        <li><a href="#">博客</a></li>
+                        <li><a href="#">教程</a></li>
+                        <li><a href="#">社区</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="footer-col-title">公司</h4>
+                    <ul class="footer-links">
+                        <li><a href="#">关于我们</a></li>
+                        <li><a href="#">隐私政策</a></li>
+                        <li><a href="#">服务条款</a></li>
+                        <li><a href="#">联系我们</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <span>© 2026 DataMind AI. 保留所有权利。</span>
+                <span>用 ❤️ 和 AI 构建</span>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // ==================== Navigation Scroll Effect ====================
+        const nav = document.getElementById('nav');
+        window.addEventListener('scroll', () => {
+            nav.classList.toggle('scrolled', window.scrollY > 40);
+        });
+
+        // ==================== Scroll Reveal ====================
+        const revealElements = document.querySelectorAll('.reveal');
+        const revealObserver = new IntersectionObserver((entries) => {
+            entries.forEach((entry, index) => {
+                if (entry.isIntersecting) {
+                    setTimeout(() => {
+                        entry.target.classList.add('visible');
+                    }, index * 80);
+                    revealObserver.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+        revealElements.forEach(el => revealObserver.observe(el));
+
+        // ==================== Floating Particles ====================
+        const particlesContainer = document.getElementById('particles');
+        for (let i = 0; i < 30; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            particle.style.left = Math.random() * 100 + '%';
+            particle.style.animationDuration = (Math.random() * 15 + 10) + 's';
+            particle.style.animationDelay = (Math.random() * 10) + 's';
+            particle.style.width = (Math.random() * 2 + 1) + 'px';
+            particle.style.height = particle.style.width;
+            particle.style.opacity = Math.random() * 0.5 + 0.1;
+            particlesContainer.appendChild(particle);
+        }
+
+        // ==================== Chat Input Interaction ====================
+        const chatInput = document.querySelector('.chat-input');
+        const chatSendBtn = document.querySelector('.chat-send-btn');
+
+        chatSendBtn.addEventListener('click', () => {
+            if (chatInput.value.trim()) {
+                chatInput.value = '';
+                chatInput.placeholder = 'AI 正在思考中...';
+                setTimeout(() => {
+                    chatInput.placeholder = '输入你的分析需求，例如：帮我找出销量Top10的产品...';
+                }, 2000);
+            }
+        });
+
+        chatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') chatSendBtn.click();
+        });
+
+        // ==================== Smooth Scroll for Nav Links ====================
+        document.querySelectorAll('.nav-links a').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const target = document.querySelector(link.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        });
+
+        // ==================== Counter Animation ====================
+        const statValues = document.querySelectorAll('.hero-stat-value');
+        const counterObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const el = entry.target;
+                    const text = el.textContent;
+                    const num = parseFloat(text);
+                    const suffix = text.replace(/[\d.]/g, '');
+                    const isDecimal = text.includes('.');
+                    let current = 0;
+                    const duration = 2000;
+                    const step = num / (duration / 16);
+
+                    const animate = () => {
+                        current += step;
+                        if (current >= num) {
+                            el.textContent = text;
+                            return;
+                        }
+                        el.textContent = (isDecimal ? current.toFixed(1) : Math.floor(current)) + suffix;
+                        requestAnimationFrame(animate);
+                    };
+                    animate();
+                    counterObserver.unobserve(el);
+                }
+            });
+        }, { threshold: 0.5 });
+
+        statValues.forEach(el => counterObserver.observe(el));
+    </script>
+</body>
+</html>

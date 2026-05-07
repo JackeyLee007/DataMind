@@ -1,36 +1,56 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# DataMind AI
 
-## Getting Started
+AI 驱动的智能数据分析平台，让每个人都能轻松获得数据洞察。
 
-First, run the development server:
+## 项目结构
+
+```
+DataMind/
+├── frontend/          # Next.js 前端应用
+│   ├── src/app/       # 页面路由
+│   ├── src/components/# 组件
+│   └── package.json   # 前端依赖
+├── backend/           # Express 后端 API
+│   ├── src/           # 源代码
+│   └── package.json   # 后端依赖
+└── docs/              # 项目文档
+```
+
+## 快速开始
+
+### 安装所有依赖
+
+```bash
+npm run install:all
+```
+
+### 同时启动前后端
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- 前端: http://localhost:3000
+- 后端 API: http://localhost:4000
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 单独启动
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+# 仅前端
+npm run dev:frontend
 
-## Learn More
+# 仅后端
+npm run dev:backend
+```
 
-To learn more about Next.js, take a look at the following resources:
+## 页面
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| 页面 | 路径 |
+|------|------|
+| Landing Page | `/` |
+| 登录 | `/login` |
+| 注册 | `/register` |
+| 仪表盘 | `/dashboard` |
+| 聊天分析 | `/chat` |
+| 设置 | `/settings` |
+| 管理后台 | `/admin` |

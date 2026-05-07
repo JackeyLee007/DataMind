@@ -1,7 +1,8 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# dependencies
+# ==================== Dependencies ====================
 /node_modules
+**/node_modules
 /.pnp
 .pnp.*
 .yarn/*
@@ -9,33 +10,86 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
 
-# testing
+# ==================== Testing ====================
 /coverage
+**/.nyc_output
 
-# next.js
+# ==================== Next.js ====================
 /.next/
+**/.next/
 /out/
+**/out/
 
-# production
+# ==================== Production ====================
 /build
+**/build
+/dist
+**/dist
 
-# misc
+# ==================== Misc ====================
 .DS_Store
+**/.DS_Store
 *.pem
+**/*.pem
 
-# debug
+# ==================== Debug ====================
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+**/*.log
 
-# env files (can opt-in for committing if needed)
-.env*
+# ==================== Environment Files ====================
+.env
+.env.*
+!.env.example
+!.env.template
 
-# vercel
+# ==================== Vercel ====================
 .vercel
+**/.vercel
 
-# typescript
+# ==================== TypeScript ====================
 *.tsbuildinfo
+**/*.tsbuildinfo
 next-env.d.ts
+**/next-env.d.ts
+
+# ==================== IDE ====================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ==================== OS ====================
+Thumbs.db
+
+# ==================== Docker ====================
+# 不提交数据卷
+docker/volumes/
+**/*.volume
+
+# ==================== Database ====================
+*.db
+*.sqlite
+*.sqlite3
+postgres_data/
+
+# ==================== Uploads / Temp ====================
+/uploads
+/temp
+/tmp
+**/*.tmp
+
+# ==================== Cache ====================
+.cache/
+**/.cache/
+.parcel-cache/
+
+# ==================== Local Config ====================
+config.local.*
