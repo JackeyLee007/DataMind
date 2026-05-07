@@ -1,10 +1,12 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import { PrismaClient } from "@prisma/client";
 
 dotenv.config();
 
 const app = express();
+const prisma = new PrismaClient();
 const PORT = process.env.PORT || 4000;
 
 app.use(cors());
@@ -16,83 +18,207 @@ app.get("/health", (_req, res) => {
 });
 
 // ===== 用户相关 =====
-app.post("/api/auth/login", (req, res) => {
+app.post("/api/auth/login", async (req, res) => {
   const { email, password } = req.body;
-  res.json({
-    token: "mock-jwt-token",
-    user: { id: "1", email, name: "用户" },
-  });
+  
+  try {
+    const user = await prisma.user.findUnique({ where: { email } });
+    
+    if (!user) {
+      return res.status(401).json({ error: "用户不存在" });
+    }
+    
+    // TODO: 添加密码验证逻辑
+    
+    res.json({
+      token: "mock-jwt-token",
+      user: { id: user.id, email: user.email, name: user.name },
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+    res.status(500).json({ error: "登录失败" });
+  }
 });
 
-app.post("/api/auth/register", (req, res) => {
-  const { name, email } = req.body;
-  res.json({
-    token: "mock-jwt-token",
-    user: { id: "2", email, name },
-  });
+app.post("/api/auth/register", async (req, res) => {
+  const { name, email, password } = req.body;
+  
+  try {
+    const existingUser = await prisma.user.findUnique({ where: { email } });
+    
+    if (existingUser) {
+      return res.status(409).json({ error: "邮箱已被注册" });
+    }
+    
+    const user = await prisma.user.create({
+      data: {
+        email,
+        name,
+        password, // TODO: 添加密码哈希
+      },
+    });
+    
+    res.json({
+      token: "mock-jwt-token",
+      user: { id: user.id, email: user.email, name: user.name },
+    });
+  } catch (error) {
+    console.error("Register error:", error);
+    res.status(500).json({ error: "注册失败" });
+  }
 });
 
 // ===== 数据源 =====
-app.get("/api/datasources", (_req, res) => {
-  res.json([
-    { id: "1", name: "销售数据 2024.xlsx", type: "excel", size: "2.4 MB" },
-    { id: "2", name: "用户行为日志", type: "postgres", size: "实时" },
-    { id: "3", name: "市场调研报告.pdf", type: "pdf", size: "5.1 MB" },
-  ]);
+app.get("/api/datasources", async (_req, res) => {
+  try {
+    const datasources = await prisma.datasource.findMany();
+    res.json(datasources);
+  } catch (error) {
+    console.error("Get datasources error:", error);
+    res.status(500).json({ error: "获取数据源失败" });
+  }
 });
 
-app.post("/api/datasources", (req, res) => {
-  res.json({ id: Date.now().toString(), ...req.body, status: "connected" });
+app.post("/api/datasources", async (req, res) => {
+  try {
+    const datasource = await prisma.datasource.create({
+      data: req.body,
+    });
+    res.json(datasource);
+  } catch (error) {
+    console.error("Create datasource error:", error);
+    res.status(500).json({ error: "创建数据源失败" });
+  }
 });
 
 // ===== 对话 / 分析 =====
-app.get("/api/chats", (_req, res) => {
-  res.json([
-    { id: "1", title: "Q3 销售数据分析", updatedAt: "2024-01-15T10:00:00Z" },
-    { id: "2", title: "用户留存率预测", updatedAt: "2024-01-14T08:30:00Z" },
-    { id: "3", title: "产品库存优化", updatedAt: "2024-01-13T16:45:00Z" },
-  ]);
+app.get("/api/chats", async (_req, res) => {
+  try {
+    const chats = await prisma.chat.findMany({
+      orderBy: { updatedAt: "desc" },
+    });
+    res.json(chats);
+  } catch (error) {
+    console.error("Get chats error:", error);
+    res.status(500).json({ error: "获取对话失败" });
+  }
 });
 
-app.post("/api/chats", (req, res) => {
-  res.json({ id: Date.now().toString(), title: req.body.title || "新对话" });
+app.post("/api/chats", async (req, res) => {
+  try {
+    const chat = await prisma.chat.create({
+      data: {
+        title: req.body.title || "新对话",
+        userId: req.body.userId,
+      },
+    });
+    res.json(chat);
+  } catch (error) {
+    console.error("Create chat error:", error);
+    res.status(500).json({ error: "创建对话失败" });
+  }
 });
 
-app.post("/api/chats/:id/messages", (req, res) => {
+app.post("/api/chats/:id/messages", async (req, res) => {
+  const { id } = req.params;
   const { content } = req.body;
-  res.json({
-    id: Date.now().toString(),
-    role: "assistant",
-    content: `收到你的问题："${content}"。这是一个模拟回复。`,
-    createdAt: new Date().toISOString(),
-  });
+  
+  try {
+    // 保存用户消息
+    await prisma.message.create({
+      data: {
+        chatId: id,
+        role: "user",
+        content,
+      },
+    });
+    
+    // 模拟 AI 回复
+    const assistantMessage = await prisma.message.create({
+      data: {
+        chatId: id,
+        role: "assistant",
+        content: `收到你的问题："${content}"。这是一个模拟回复。`,
+      },
+    });
+    
+    // 更新对话时间
+    await prisma.chat.update({
+      where: { id },
+      data: { updatedAt: new Date() },
+    });
+    
+    res.json(assistantMessage);
+  } catch (error) {
+    console.error("Create message error:", error);
+    res.status(500).json({ error: "发送消息失败" });
+  }
 });
 
 // ===== 仪表盘统计 =====
-app.get("/api/dashboard/stats", (_req, res) => {
-  res.json({
-    chats: 128,
-    datasources: 12,
-    charts: 86,
-    reports: 15,
-  });
+app.get("/api/dashboard/stats", async (_req, res) => {
+  try {
+    const [chats, datasources, reports] = await Promise.all([
+      prisma.chat.count(),
+      prisma.datasource.count(),
+      prisma.report.count(),
+    ]);
+    
+    res.json({
+      chats,
+      datasources,
+      charts: 0, // TODO: 添加图表统计
+      reports,
+    });
+  } catch (error) {
+    console.error("Get stats error:", error);
+    res.status(500).json({ error: "获取统计失败" });
+  }
 });
 
 // ===== 管理后台 =====
-app.get("/api/admin/users", (_req, res) => {
-  res.json([
-    { id: "1", name: "张明远", email: "zhang@example.com", plan: "专业版", status: "active" },
-    { id: "2", name: "李思涵", email: "li@example.com", plan: "企业版", status: "active" },
-  ]);
+app.get("/api/admin/users", async (_req, res) => {
+  try {
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        plan: true,
+        status: true,
+      },
+    });
+    res.json(users);
+  } catch (error) {
+    console.error("Get users error:", error);
+    res.status(500).json({ error: "获取用户列表失败" });
+  }
 });
 
-app.get("/api/admin/stats", (_req, res) => {
-  res.json({
-    totalUsers: 12458,
-    monthlyRevenue: 426000,
-    activeSessions: 1284,
-    conversionRate: 18.6,
-  });
+app.get("/api/admin/stats", async (_req, res) => {
+  try {
+    const [totalUsers, activeSessions] = await Promise.all([
+      prisma.user.count(),
+      prisma.chat.count({ where: { updatedAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } } }),
+    ]);
+    
+    res.json({
+      totalUsers,
+      monthlyRevenue: 0, // TODO: 添加收入统计
+      activeSessions,
+      conversionRate: 0, // TODO: 添加转化率统计
+    });
+  } catch (error) {
+    console.error("Get admin stats error:", error);
+    res.status(500).json({ error: "获取管理统计失败" });
+  }
+});
+
+// 优雅关闭
+process.on("SIGTERM", async () => {
+  console.log("SIGTERM received, closing HTTP server and Prisma client");
+  await prisma.$disconnect();
+  process.exit(0);
 });
 
 app.listen(PORT, () => {
