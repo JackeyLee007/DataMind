@@ -3,6 +3,7 @@ FROM node:20-alpine AS base
 # 安装依赖阶段
 FROM base AS deps
 WORKDIR /app
+RUN apk add --no-cache openssl
 COPY package*.json ./
 COPY prisma ./prisma
 RUN npm ci --only=production
@@ -10,6 +11,7 @@ RUN npm ci --only=production
 # 构建阶段
 FROM base AS builder
 WORKDIR /app
+RUN apk add --no-cache openssl
 COPY package*.json ./
 COPY prisma ./prisma
 RUN npm ci
@@ -20,6 +22,8 @@ RUN npm run build
 FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+
+RUN apk add --no-cache openssl
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/prisma ./prisma
