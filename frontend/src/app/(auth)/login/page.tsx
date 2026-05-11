@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Sparkles, Eye, EyeOff, ArrowRight, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
@@ -127,10 +126,10 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <Button
+          <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full h-11 bg-gradient-to-r from-[#8b5cf6] to-[#3b82f6] hover:shadow-[0_0_30px_rgba(139,92,246,0.4)] text-white font-semibold transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+            className="inline-flex items-center justify-center w-full h-11 bg-gradient-to-r from-[#8b5cf6] to-[#3b82f6] hover:shadow-[0_0_30px_rgba(139,92,246,0.4)] text-white font-semibold transition-all rounded-lg border border-transparent disabled:opacity-60 disabled:cursor-not-allowed disabled:pointer-events-none"
           >
             {isSubmitting ? (
               <>
@@ -142,7 +141,7 @@ export default function LoginPage() {
                 登录 <ArrowRight size={16} className="ml-1" />
               </>
             )}
-          </Button>
+          </button>
         </form>
 
         {/* Divider */}
