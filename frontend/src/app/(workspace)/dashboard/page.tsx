@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   Sparkles,
@@ -15,16 +14,23 @@ import {
   FileText,
   Globe,
   Server,
+  LogOut,
 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 /* ==================== Sidebar ==================== */
 function Sidebar() {
+  const { user, logout } = useAuth();
+
   const navItems = [
     { icon: <BarChart3 size={18} />, label: "仪表盘", href: "/dashboard", active: true },
     { icon: <MessageSquare size={18} />, label: "对话", href: "/chat", active: false },
     { icon: <Database size={18} />, label: "数据源", href: "/datasources", active: false },
     { icon: <FileText size={18} />, label: "报告", href: "/reports", active: false },
   ];
+
+  const displayName = user?.name || user?.email?.split("@")[0] || "用户";
+  const displayInitial = displayName.charAt(0).toUpperCase();
 
   return (
     <aside className="w-[220px] bg-[#111118] border-r border-[rgba(255,255,255,0.06)] flex flex-col">
@@ -63,12 +69,22 @@ function Sidebar() {
       <div className="p-4 border-t border-[rgba(255,255,255,0.06)]">
         <div className="flex items-center gap-3 px-3 py-2">
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#8b5cf6] to-[#3b82f6] flex items-center justify-center text-xs text-white font-bold">
-            用
+            {displayInitial}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium truncate">用户</div>
-            <div className="text-xs text-[#6a6a82] truncate">user@example.com</div>
+            <div className="text-sm font-medium truncate">{displayName}</div>
+            <div className="text-xs text-[#6a6a82] truncate">{user?.email || ""}</div>
           </div>
+          <button
+            onClick={() => {
+              logout();
+              window.location.href = "/login";
+            }}
+            className="text-[#6a6a82] hover:text-[#ef4444] transition-colors"
+            title="退出登录"
+          >
+            <LogOut size={14} />
+          </button>
         </div>
       </div>
     </aside>
@@ -261,7 +277,7 @@ function UsageChart() {
         <span className="text-xs text-[#6a6a82]">本周</span>
       </div>
       <div className="flex items-end gap-3 h-[140px]">
-        {data.map((d, i) => (
+        {data.map((d) => (
           <div key={d.day} className="flex-1 flex flex-col items-center gap-2">
             <div className="w-full relative">
               <div
@@ -279,6 +295,9 @@ function UsageChart() {
 
 /* ==================== Main Page ==================== */
 export default function DashboardPage() {
+  const { user } = useAuth();
+  const displayName = user?.name || user?.email?.split("@")[0] || "用户";
+
   return (
     <div className="h-screen flex bg-[#0a0a0f] text-[#e8e8f0] overflow-hidden">
       <Sidebar />
@@ -291,7 +310,7 @@ export default function DashboardPage() {
               <h1 className="font-[family-name:var(--font-space-grotesk)] text-xl font-bold">
                 仪表盘
               </h1>
-              <p className="text-xs text-[#6a6a82] mt-0.5">欢迎回来，查看你的数据分析概览</p>
+              <p className="text-xs text-[#6a6a82] mt-0.5">欢迎回来，{displayName}，查看你的数据分析概览</p>
             </div>
             <a
               href="/chat"

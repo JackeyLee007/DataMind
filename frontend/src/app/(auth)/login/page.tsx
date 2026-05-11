@@ -1,16 +1,49 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Sparkles, Eye, EyeOff, ArrowRight } from "lucide-react";
+import { Sparkles, Eye, EyeOff, ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function LoginPage() {
+  const router = useRouter();
+  const { login } = useAuth();
+
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+
+    if (!email.trim()) {
+      setError("请输入邮箱地址");
+      return;
+    }
+    if (!password.trim()) {
+      setError("请输入密码");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    const result = await login(email, password);
+
+    if (!result.success) {
+      setError(result.error || "登录失败");
+      setIsSubmitting(false);
+      return;
+    }
+
+    router.push("/dashboard");
+  };
 
   return (
     <motion.div
@@ -36,7 +69,17 @@ export default function LoginPage() {
 
       {/* Login Form */}
       <div className="bg-[#16161f] border border-[rgba(255,255,255,0.06)] rounded-2xl p-8 shadow-[0_4px_24px_rgba(0,0,0,0.3)]">
-        <form className="space-y-5" onSubmit={(e) => e.preventDefault()}>
+        <form className="space-y-5" onSubmit={handleSubmit}>
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-[rgba(239,68,68,0.1)] border border-[rgba(239,68,68,0.2)] rounded-lg px-4 py-3 text-sm text-[#ef4444]"
+            >
+              {error}
+            </motion.div>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="email" className="text-sm text-[#a0a0b8]">
               邮箱地址
@@ -47,6 +90,7 @@ export default function LoginPage() {
               placeholder="name@company.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              disabled={isSubmitting}
               className="bg-[#111118] border-[rgba(255,255,255,0.06)] text-[#f0f0f5] placeholder:text-[#4a4a5c] focus:border-[rgba(139,92,246,0.3)] focus:ring-[rgba(139,92,246,0.1)] h-11"
             />
           </div>
@@ -70,6 +114,7 @@ export default function LoginPage() {
                 placeholder="输入你的密码"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                disabled={isSubmitting}
                 className="bg-[#111118] border-[rgba(255,255,255,0.06)] text-[#f0f0f5] placeholder:text-[#4a4a5c] focus:border-[rgba(139,92,246,0.3)] focus:ring-[rgba(139,92,246,0.1)] h-11 pr-10"
               />
               <button
@@ -84,9 +129,19 @@ export default function LoginPage() {
 
           <Button
             type="submit"
-            className="w-full h-11 bg-gradient-to-r from-[#8b5cf6] to-[#3b82f6] hover:shadow-[0_0_30px_rgba(139,92,246,0.4)] text-white font-semibold transition-all"
+            disabled={isSubmitting}
+            className="w-full h-11 bg-gradient-to-r from-[#8b5cf6] to-[#3b82f6] hover:shadow-[0_0_30px_rgba(139,92,246,0.4)] text-white font-semibold transition-all disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            登录 <ArrowRight size={16} className="ml-1" />
+            {isSubmitting ? (
+              <>
+                <Loader2 size={16} className="mr-2 animate-spin" />
+                登录中...
+              </>
+            ) : (
+              <>
+                登录 <ArrowRight size={16} className="ml-1" />
+              </>
+            )}
           </Button>
         </form>
 

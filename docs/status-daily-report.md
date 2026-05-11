@@ -65,6 +65,40 @@ app.listen(PORT, () => {
 });
 ```
 
+## Backend 部署
+
+**backend/railway.json**：
+```json
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "build": {
+    "builder": "NIXPACKS",
+    "buildCommand": "npm install && npm run build"
+  },
+  "deploy": {
+    "startCommand": "node dist/index.js",
+    "healthcheckPath": "/health",
+    "healthcheckTimeout": 100,
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 10
+  }
+}
+```
+
+## Prisma + Alpine Linux 问题修复
+
+部署 backend 时遇到 Prisma 缺少 OpenSSL 库错误：
+```
+Error loading shared library libssl.so.1.1: No such file or directory
+```
+
+**解决方案**：在 Dockerfile 中安装 openssl
+```dockerfile
+RUN apk add --no-cache openssl
+```
+
+**状态**：✅ Backend 已在 Railway 部署成功
+
 ---
 
 # 2026-05-06
@@ -154,14 +188,164 @@ npm run install:all
 | 前端 (本地) | http://localhost:3000 |
 | 后端 API (本地) | http://localhost:4000 |
 
+---
+
+# 2026-05-10
+
+## 架构决策
+
+**决策**：选择 **方案 A — Frontend 直接调用 Backend API**
+
+现阶段 Frontend 通过 `NEXT_PUBLIC_API_URL` 直接调用 Backend Express API。本地开发时前端 `localhost:3000` → 后端 `localhost:4000`，部署时通过 Railway 内部网络通信。
+
+暂不引入 Next.js API Routes 代理层，保持架构简单。后续部署到 Railway 时再按需添加代理（利用 `backend.railway.internal` 内部网络）。
+
+## 今日完成
+
+### ✅ Frontend-Backend 登录连接
+
+- 创建 `frontend/src/lib/api.ts` — API 客户端封装（fetch + token 管理 + 错误处理）
+- 创建 `frontend/src/hooks/useAuth.ts` — 认证状态管理 Hook（login/register/logout + localStorage 持久化）
+- 创建 `frontend/.env.local` — 配置 `NEXT_PUBLIC_API_URL=http://localhost:4000`
+- 修改 `frontend/src/app/(auth)/login/page.tsx` — 接入真实登录 API（含加载状态、错误提示、表单验证）
+- 修改 `frontend/src/app/(workspace)/dashboard/page.tsx` — 侧边栏显示真实用户信息 + 退出登录按钮
+
+### 登录流程
+
+```
+用户输入邮箱+密码 → 前端 POST /api/auth/login → 后端查数据库验证
+→ 返回 mock-jwt-token + 用户信息 → 前端存入 localStorage
+→ 跳转 /dashboard → 侧边栏显示真实用户名/邮箱
+```
+
+---
+
+## Frontend-Backend 连接 TODO List
+
+### Phase 1：认证系统（当前阶段）
+
+- [x] API 客户端封装（`src/lib/api.ts`）
+- [x] 认证状态管理 Hook（`src/hooks/useAuth.ts`）
+- [x] 登录页面对接 Backend
+- [x] Dashboard 显示真实用户信息 + 退出登录
+- [ ] 注册页面对接 Backend（`/register`）
+- [ ] JWT 真实实现（后端：密码 bcrypt 哈希 + JWT 签发 + 验证中间件）
+- [ ] 认证路由守卫（未登录访问 workspace 页面自动跳转 `/login`）
+- [ ] `GET /api/auth/me` 端点（验证 token 有效性，返回当前用户）
+
+### Phase 2：核心业务对接
+
+- [ ] Dashboard 统计数据对接（`GET /api/dashboard/stats`）
+- [ ] Chat 页面对接（对话列表 + 创建对话 + 发送消息）
+- [ ] 数据源管理对接（列表 + 上传）
+- [ ] 设置页面对接（加载/保存用户设置）
+
+### Phase 3：AI 能力
+
+- [ ] AI 对话接口集成（OpenAI / Kimi）
+- [ ] SSE 流式响应（后端 → 前端实时渲染）
+- [ ] Mastra Agent 集成
+
+### Phase 4：管理后台
+
+- [ ] Admin 统计数据对接
+- [ ] Admin 用户管理对接
+- [ ] Admin 独立认证（管理员 JWT）
+
+### Phase 5：安全加固
+
+- [ ] 后端 CORS 限制来源
+- [ ] 后端请求限流（rate-limit）
+- [ ] 后端输入验证（zod）
+- [ ] 后端统一错误处理中间件
+- [ ] 后端 API 鉴权中间件（JWT 验证）
+
+---
+
+# 2026-05-08
+
+## 明日开发计划
+
+### 1. 架构决策：Frontend-Backend 通信方案
+
+**决策项**：选择 Frontend 与 Backend 的通信架构方案
+
+#### 方案对比
+
+| 方案 | 复杂度 | 安全性 | 适用场景 |
+|------|--------|--------|----------|
+| **A. Next.js API Routes 代理** | 低 | 中 | 单 Backend 服务，快速实现 |
+| **B. 独立 BFF 服务** | 高 | 高 | 多 Backend 服务，复杂鉴权 |
+
+#### 方案 A：Next.js API Routes 代理
+
+**优点**：
+- 无需额外服务，架构简单
+- 利用 Railway 内部网络通信（`backend.railway.internal`）
+- 部署维护成本低
+
+**缺点**：
+- Frontend 服务承担代理职责
+- 无法处理复杂的聚合逻辑
+
+**实现方式**：
+```typescript
+// API Route 代理到 Backend
+fetch('http://backend.railway.internal:4000/api/...')
+```
+
+#### 方案 B：独立 BFF 服务
+
+**优点**：
+- 统一 API 网关，支持多后端聚合
+- 独立的认证/鉴权层
+- 更好的扩展性
+
+**缺点**：
+- 需要额外部署维护一个服务
+- 架构复杂度增加
+
+#### 决策参考因素
+
+- [ ] 当前是否只有 1 个 Backend 服务？
+- [ ] 是否需要聚合多个后端服务？
+- [ ] 认证逻辑是否复杂？
+- [ ] 团队是否有维护 BFF 的资源？
+
+**建议**：现阶段选择 **方案 A**，当 Backend 服务超过 2-3 个时再考虑 BFF。
+
+### 2. 实施方案（根据决策结果）
+
+如果选择方案 A：
+- [ ] 创建 Next.js API Routes 代理
+- [ ] 配置 `BACKEND_INTERNAL_URL` 环境变量
+- [ ] 更新 Frontend 调用代码使用相对路径 `/api/*`
+- [ ] 测试内部网络通信
+
+如果选择方案 B：
+- [ ] 设计 BFF 服务架构
+- [ ] 创建 BFF 项目结构
+- [ ] 实现代理和认证逻辑
+- [ ] 部署 BFF 服务
+
+**参考文档**：`docs/deployment.md` - Frontend 与 Backend 连接配置章节
+
+---
+
 ## 待办事项
 
 - [x] Railway 前端部署配置
-- [ ] Railway 后端部署配置
+- [x] Railway 后端部署配置
+- [ ] Railway Frontend 与 Backend 连接配置
+- [x] 前端 API 客户端封装
+- [x] 前端登录页面对接 Backend
+- [x] 前端用户信息显示 + 退出登录
+- [ ] 前端注册页面对接 Backend
 - [ ] 后端数据库连接（PostgreSQL）
-- [ ] 用户认证 JWT 实现
-- [ ] AI 对话接口集成（OpenAI / Claude）
+- [ ] 用户认证 JWT 真实实现（bcrypt + jsonwebtoken）
+- [ ] 认证路由守卫
+- [ ] AI 对话接口集成（OpenAI / Claude / Kimi）
 - [ ] 数据源文件上传功能
 - [ ] 图表生成与导出
-- [ ] 前端 API 对接
+- [ ] 前端 API 对接（Dashboard/Chat/Settings）
 - [ ] 测试覆盖
