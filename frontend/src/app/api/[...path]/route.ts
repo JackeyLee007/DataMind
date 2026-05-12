@@ -65,9 +65,10 @@ async function proxyRequest(
     const data = await res.json();
 
     return NextResponse.json(data, { status: res.status });
-  } catch {
+  } catch (err) {
+    console.error(`[API Proxy] Failed to reach backend: ${url}`, err);
     return NextResponse.json(
-      { error: "后端服务不可用" },
+      { error: "后端服务不可用", debug: { url, backendUrl: BACKEND_URL } },
       { status: 502 }
     );
   }
