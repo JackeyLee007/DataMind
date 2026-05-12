@@ -170,6 +170,18 @@ CMD ["node", "dist/index.js"]
 
 当 Frontend 和 Backend 分别部署为独立服务时，需要配置它们之间的通信。
 
+### 架构：Next.js API Routes 代理
+
+```
+浏览器 → Next.js API Route (/api/*) → Railway 内部网络 → Backend (backend.railway.internal:4000)
+```
+
+**为什么需要代理层**：
+- 浏览器无法访问 Railway 内部网络（`*.railway.internal`）
+- 前端代码调相对路径 `/api/*`（同域请求，无 CORS 问题）
+- Next.js 服务端 API Route 通过 Railway 内部网络转发到 Backend
+- `BACKEND_INTERNAL_URL` 是服务端环境变量，不暴露给浏览器
+
 ### Railway 内部网络
 
 Railway 为同一项目内的所有服务提供了内部网络通信能力：
@@ -192,55 +204,45 @@ Railway 为同一项目内的所有服务提供了内部网络通信能力：
 在 Frontend 服务的环境变量中添加：
 
 ```
-NEXT_PUBLIC_API_URL=https://backend-production-xxx.up.railway.app
+BACKEND_INTERNAL_URL=http://backend.railway.internal:4000
 ```
 
 **注意**：
-- 使用 Backend 的**外部域名**（Public Domain）
-- 因为 Frontend 在浏览器中运行，无法访问 Railway 内部网络
-- 域名格式：`https://{service-name}-{random-string}.up.railway.app`
+- 使用 Backend 的**内部域名**（不是外部 Public Domain）
+- 因为请求从 Next.js 服务端发出，可以访问 Railway 内部网络
+- **不要**加 `NEXT_PUBLIC_` 前缀，此变量仅在服务端使用
+- 端口使用 Backend 的内部端口（默认 4000）
 
 #### 3. 配置 Backend 环境变量
 
-在 Backend 服务的环境变量中添加：
+Backend 的 CORS 不需要限制来源，因为前端不再直接调 Backend，而是通过 Next.js 代理。
 
-```
-FRONTEND_URL=https://frontend-production-yyy.up.railway.app
-```
+### API 请求流程
 
-用于 CORS 配置：
-```javascript
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true
-}));
-```
-
-### API 请求示例
-
-#### Frontend 代码
+#### 前端代码
 
 ```typescript
-// 使用环境变量构建 API URL
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-
-async function fetchData() {
-  const response = await fetch(`${API_BASE}/api/data`);
-  return response.json();
-}
+// 前端调相对路径，由 Next.js API Route 代理
+const response = await fetch('/api/auth/login', {
+  method: 'POST',
+  body: JSON.stringify({ email, password }),
+});
 ```
 
-#### 环境变量配置 (.env.local 开发环境)
+#### Next.js API Route 代理
 
-```
-NEXT_PUBLIC_API_URL=http://localhost:4000
+```typescript
+// src/app/api/[...path]/route.ts
+const BACKEND_URL = process.env.BACKEND_INTERNAL_URL || 'http://localhost:4000';
+// 转发到 http://backend.railway.internal:4000/api/auth/login
 ```
 
-#### Railway 环境变量 (生产环境)
+#### 环境变量配置
 
-```
-NEXT_PUBLIC_API_URL=https://backend-production-xxx.up.railway.app
-```
+| 环境 | `BACKEND_INTERNAL_URL` |
+|------|----------------------|
+| 本地开发 | `http://localhost:4000` |
+| Railway 部署 | `http://backend.railway.internal:4000` |
 
 ### 服务间直接通信（Backend → Backend/Database）
 
@@ -256,9 +258,9 @@ const DATABASE_URL = process.env.DATABASE_URL;
 
 | 通信方向 | 使用地址 | 示例 |
 |----------|----------|------|
-| Frontend → Backend | 外部域名 | `https://backend-xxx.up.railway.app` |
+| 浏览器 → Next.js | 相对路径 | `/api/auth/login` |
+| Next.js → Backend | Railway 内部域名 | `http://backend.railway.internal:4000` |
 | Backend → Database | 内部域名/连接字符串 | `postgresql://...` (自动注入) |
-| Backend → Backend | 内部域名 | `http://other-service.railway.internal:4000` |
 
 ---
 
@@ -266,13 +268,12 @@ const DATABASE_URL = process.env.DATABASE_URL;
 
 ### 必需的环境变量
 
-| 变量 | 说明 | 示例 |
-|------|------|------|
-| `PORT` | Railway 自动分配 | 3000, 4000 |
-| `DATABASE_URL` | PostgreSQL 连接字符串 | 自动配置 |
-| `NODE_ENV` | 运行环境 | production |
-| `NEXT_PUBLIC_API_URL` | Backend API 地址 | `https://backend-xxx.up.railway.app` |
-| `FRONTEND_URL` | Frontend 地址（CORS） | `https://frontend-yyy.up.railway.app` |
+| 变量 | 服务 | 说明 | 示例 |
+|------|------|------|------|
+| `PORT` | Frontend/Backend | Railway 自动分配 | 3000, 4000 |
+| `DATABASE_URL` | Backend | PostgreSQL 连接字符串 | 自动配置 |
+| `NODE_ENV` | Frontend/Backend | 运行环境 | production |
+| `BACKEND_INTERNAL_URL` | Frontend | Backend 内部地址（服务端） | `http://backend.railway.internal:4000` |
 
 ### 端口监听代码示例
 

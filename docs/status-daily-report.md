@@ -194,29 +194,45 @@ npm run install:all
 
 ## 架构决策
 
-**决策**：选择 **方案 A — Frontend 直接调用 Backend API**
+**决策**：选择 **方案 A — Next.js API Routes 代理 + Railway 内部网络**
 
-现阶段 Frontend 通过 `NEXT_PUBLIC_API_URL` 直接调用 Backend Express API。本地开发时前端 `localhost:3000` → 后端 `localhost:4000`，部署时通过 Railway 内部网络通信。
+```
+浏览器 → Next.js API Route (/api/*) → Railway 内部网络 → Backend (backend.railway.internal:4000)
+```
 
-暂不引入 Next.js API Routes 代理层，保持架构简单。后续部署到 Railway 时再按需添加代理（利用 `backend.railway.internal` 内部网络）。
+**关键点**：
+- 浏览器无法访问 Railway 内部网络，所以前端调相对路径 `/api/*`
+- Next.js 服务端 API Route 代理请求到 Backend 内部域名
+- 本地开发时 `BACKEND_INTERNAL_URL=http://localhost:4000`
+- Railway 部署时 `BACKEND_INTERNAL_URL=http://backend.railway.internal:4000`
+- `BACKEND_INTERNAL_URL` 是服务端环境变量，不暴露给浏览器（无 `NEXT_PUBLIC_` 前缀）
 
 ## 今日完成
 
 ### ✅ Frontend-Backend 登录连接
 
-- 创建 `frontend/src/lib/api.ts` — API 客户端封装（fetch + token 管理 + 错误处理）
+- 创建 `frontend/src/lib/api.ts` — API 客户端封装（调相对路径 `/api/*`，自动携带 JWT token）
 - 创建 `frontend/src/hooks/useAuth.ts` — 认证状态管理 Hook（login/register/logout + localStorage 持久化）
-- 创建 `frontend/.env.local` — 配置 `NEXT_PUBLIC_API_URL=http://localhost:4000`
-- 修改 `frontend/src/app/(auth)/login/page.tsx` — 接入真实登录 API（含加载状态、错误提示、表单验证）
+- 创建 `frontend/src/app/api/[...path]/route.ts` — Next.js API Route 代理层（转发到 Backend）
+- 修改 `frontend/.env.local` — 配置 `BACKEND_INTERNAL_URL=http://localhost:4000`
+- 修改 `frontend/src/app/(auth)/login/page.tsx` — 接入真实登录 API + 修复 @base-ui Button 不触发表单提交的 bug
 - 修改 `frontend/src/app/(workspace)/dashboard/page.tsx` — 侧边栏显示真实用户信息 + 退出登录按钮
 
 ### 登录流程
 
 ```
-用户输入邮箱+密码 → 前端 POST /api/auth/login → 后端查数据库验证
-→ 返回 mock-jwt-token + 用户信息 → 前端存入 localStorage
+用户输入邮箱+密码
+→ 前端 fetch("/api/auth/login")  （相对路径，同域请求）
+→ Next.js API Route 代理转发到 BACKEND_INTERNAL_URL/api/auth/login
+→ 后端查数据库验证
+→ 返回 mock-jwt-token + 用户信息
+→ 前端存入 localStorage
 → 跳转 /dashboard → 侧边栏显示真实用户名/邮箱
 ```
+
+### Bug 修复
+
+**@base-ui/react Button 强制覆盖 type 属性**：Button 组件内部将 `type` 设为 `'button'`，导致 `type="submit"` 无效，表单无法提交。修复方式：登录按钮改用原生 `<button>` 元素。
 
 ---
 

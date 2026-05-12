@@ -1,5 +1,3 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-
 interface ApiResponse<T = unknown> {
   data?: T;
   error?: string;
@@ -9,8 +7,6 @@ async function request<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
-  const url = `${API_BASE_URL}${endpoint}`;
-
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...((options.headers as Record<string, string>) || {}),
@@ -24,7 +20,7 @@ async function request<T>(
   }
 
   try {
-    const res = await fetch(url, {
+    const res = await fetch(endpoint, {
       ...options,
       headers,
     });
