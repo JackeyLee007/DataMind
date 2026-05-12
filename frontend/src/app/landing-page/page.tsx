@@ -135,12 +135,12 @@ function Navigation() {
         </ul>
 
         <div className="flex items-center gap-3">
-          <button className="px-5 py-2 rounded-lg text-sm text-[#a0a0b8] hover:text-[#f0f0f5] hover:bg-[rgba(255,255,255,0.05)] transition-all font-medium">
+          <a href="/login" className="px-5 py-2 rounded-lg text-sm text-[#a0a0b8] hover:text-[#f0f0f5] hover:bg-[rgba(255,255,255,0.05)] transition-all font-medium">
             登录
-          </button>
-          <button className="px-5 py-2.5 rounded-lg text-sm text-white bg-gradient-to-r from-[#8b5cf6] to-[#3b82f6] font-semibold hover:shadow-[0_0_30px_rgba(139,92,246,0.4)] hover:-translate-y-0.5 transition-all">
+          </a>
+          <a href="/register" className="px-5 py-2.5 rounded-lg text-sm text-white bg-gradient-to-r from-[#8b5cf6] to-[#3b82f6] font-semibold hover:shadow-[0_0_30px_rgba(139,92,246,0.4)] hover:-translate-y-0.5 transition-all">
             免费开始
-          </button>
+          </a>
         </div>
       </div>
     </nav>
@@ -225,9 +225,9 @@ function HeroSection() {
           transition={{ duration: 0.8, delay: 0.3 }}
           className="flex items-center justify-center gap-4 flex-wrap"
         >
-          <button className="px-8 py-3.5 rounded-xl text-base font-semibold text-white bg-gradient-to-r from-[#8b5cf6] to-[#3b82f6] shadow-[0_0_30px_rgba(139,92,246,0.3)] hover:shadow-[0_0_50px_rgba(139,92,246,0.5)] hover:-translate-y-0.5 transition-all flex items-center gap-2">
+          <a href="/register" className="px-8 py-3.5 rounded-xl text-base font-semibold text-white bg-gradient-to-r from-[#8b5cf6] to-[#3b82f6] shadow-[0_0_30px_rgba(139,92,246,0.3)] hover:shadow-[0_0_50px_rgba(139,92,246,0.5)] hover:-translate-y-0.5 transition-all flex items-center gap-2">
             开始免费分析 <ArrowRight size={18} />
-          </button>
+          </a>
           <button className="px-8 py-3.5 rounded-xl text-base font-semibold text-[#f0f0f5] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.15)] transition-all flex items-center gap-2">
             <Play size={18} /> 观看演示
           </button>
@@ -957,15 +957,16 @@ function PricingSection() {
                     </li>
                   ))}
                 </ul>
-                <button
-                  className={`w-full py-3 rounded-xl text-sm font-semibold transition-all ${
+                <a
+                  href={plan.buttonText === "联系销售" ? "#" : "/register"}
+                  className={`block w-full py-3 rounded-xl text-sm font-semibold transition-all text-center ${
                     plan.highlighted
                       ? "text-white bg-gradient-to-r from-[#8b5cf6] to-[#3b82f6] hover:shadow-[0_0_30px_rgba(139,92,246,0.4)]"
                       : "text-[#f0f0f5] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.1)]"
                   }`}
                 >
                   {plan.buttonText}
-                </button>
+                </a>
               </div>
             </Reveal>
           ))}
@@ -988,9 +989,9 @@ function CTASection() {
           <p className="text-[#a0a0b8] max-w-[500px] mx-auto leading-relaxed mb-8">
             加入 200 万+ 用户，用 AI 重新定义数据分析体验。免费开始，无需信用卡。
           </p>
-          <button className="px-8 py-3.5 rounded-xl text-base font-semibold text-white bg-gradient-to-r from-[#8b5cf6] to-[#3b82f6] shadow-[0_0_30px_rgba(139,92,246,0.3)] hover:shadow-[0_0_50px_rgba(139,92,246,0.5)] hover:-translate-y-0.5 transition-all flex items-center gap-2 mx-auto">
+          <a href="/register" className="px-8 py-3.5 rounded-xl text-base font-semibold text-white bg-gradient-to-r from-[#8b5cf6] to-[#3b82f6] shadow-[0_0_30px_rgba(139,92,246,0.3)] hover:shadow-[0_0_50px_rgba(139,92,246,0.5)] hover:-translate-y-0.5 transition-all flex items-center gap-2 mx-auto">
             免费开始使用 <ArrowRight size={18} />
-          </button>
+          </a>
         </Reveal>
       </div>
     </section>
