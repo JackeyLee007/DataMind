@@ -1,5 +1,4 @@
 services:
-  # PostgreSQL 数据库
   postgres:
     image: postgres:17.9
     container_name: datamind-postgres
@@ -16,8 +15,23 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
-  # 后端 API
+  redis:
+    image: redis:7.4-alpine
+    container_name: datamind-redis
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   backend:
     build:
       context: ../backend
@@ -27,14 +41,16 @@ services:
       NODE_ENV: production
       PORT: 4000
       DATABASE_URL: postgresql://datamind:datamind123@postgres:5432/datamind
+      REDIS_URL: redis://redis:6379
     ports:
       - "4000:4000"
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: unless-stopped
 
-  # 前端 Next.js
   frontend:
     build:
       context: ../frontend
@@ -51,3 +67,4 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:

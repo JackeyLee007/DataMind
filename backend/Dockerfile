@@ -32,4 +32,5 @@ COPY --from=builder /app/package.json ./package.json
 
 EXPOSE 4000
 
-CMD ["node", "dist/index.js"]
+# 执行数据库迁移、seed，然后启动应用
+CMD sh -c "npx prisma migrate deploy && npx prisma db seed && node dist/index.js"

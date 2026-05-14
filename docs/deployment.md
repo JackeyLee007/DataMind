@@ -333,3 +333,256 @@ app.listen(PORT, () => {
 **检查**：
 1. `DATABASE_URL` 环境变量是否正确设置
 2. Railway PostgreSQL 服务是否正常运行
+
+---
+
+## Prisma 数据库迁移指南
+
+### 常用命令
+
+| 命令 | 说明 | 使用场景 |
+|------|------|----------|
+| `npx prisma generate` | 根据 schema 生成 Prisma Client | schema 变更后、安装依赖后 |
+| `npx prisma migrate dev --name <名称>` | 创建并应用迁移（开发环境） | 本地开发时修改 schema 后 |
+| `npx prisma migrate deploy` | 应用已有迁移（生产环境） | CI/CD 部署、生产环境启动 |
+| `npx prisma migrate status` | 查看迁移状态 | 检查当前数据库与迁移文件的差异 |
+| `npx prisma studio` | 打开可视化数据管理界面 | 本地调试、查看/编辑数据 |
+| `npx prisma db seed` | 执行 seed 脚本填充初始数据 | 初始化环境数据 |
+
+### 开发环境迁移流程
+
+```bash
+# 1. 修改 prisma/schema.prisma
+
+# 2. 创建并应用迁移（自动生成 SQL 迁移文件）
+npx prisma migrate dev --name add_user_profile
+
+# 3. 重新生成 Prisma Client（migrate dev 会自动触发）
+npx prisma generate
+
+# 4. 可选：填充测试数据
+npx prisma db seed
+```
+
+### 生产环境迁移流程
+
+```bash
+# 1. 确保迁移文件已提交到版本控制
+
+# 2. 只应用迁移，不生成新文件
+npx prisma migrate deploy
+
+# 3. 启动应用
+npm start
+```
+
+### 项目脚本配置
+
+[backend/package.json](file:///Users/li.pc/workload/kiro-projs/DataMind/backend/package.json) 中已配置：
+
+```json
+{
+  "scripts": {
+    "postinstall": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:prod": "prisma migrate deploy",
+    "db:generate": "prisma generate",
+    "db:studio": "prisma studio",
+    "db:seed": "tsx prisma/seed.ts"
+  }
+}
+```
+
+- `postinstall`：每次 `npm install` 后**自动**生成 Prisma Client
+- `db:migrate`：开发环境创建并应用迁移
+- `db:migrate:prod`：生产环境只应用已有迁移
+
+### 重要注意事项
+
+#### 1. 必须先生成 Prisma Client
+
+Prisma Client 是根据 `schema.prisma` **自动生成的类型安全数据库客户端**，存储在 `node_modules/@prisma/client` 中。
+
+**以下情况必须重新生成**：
+- 修改了 `schema.prisma`（新增/修改/删除模型、字段、枚举）
+- 新克隆项目或删除 `node_modules` 后
+- 切换分支后 schema 有变更
+
+**以下情况不需要重新生成**：
+- 只修改业务代码，不动 schema
+- 修改迁移文件（`migration.sql`）但不改 schema
+
+#### 2. 开发 vs 生产迁移命令的区别
+
+| | `migrate dev` | `migrate deploy` |
+|--|---------------|------------------|
+| **环境** | 本地开发 | 生产 / CI |
+| **生成迁移文件** | ✅ 会提示创建 | ❌ 不会创建 |
+| **交互式** | ✅ 会提示确认 | ❌ 非交互 |
+| **自动应用** | ✅ 自动应用到数据库 | ✅ 自动应用 |
+| **生成 Client** | ✅ 自动触发 | ❌ 需手动运行 `generate` |
+
+> ⚠️ **生产环境严禁使用 `migrate dev`**，因为它会尝试创建新迁移文件并可能提示交互式输入，导致部署失败。
+
+#### 3. 迁移文件必须纳入版本控制
+
+`prisma/migrations/` 目录下的所有文件（包括 `migration.sql` 和 `migration_lock.toml`）**必须提交到 Git**。这是生产环境 `migrate deploy` 的依据。
+
+```bash
+git add prisma/migrations/
+git commit -m "feat: add user profile migration"
+```
+
+#### 4. 环境变量配置
+
+Prisma 通过 `DATABASE_URL` 环境变量连接数据库：
+
+```bash
+# 本地开发（连接 Docker 中的 PostgreSQL）
+DATABASE_URL=postgresql://datamind:datamind123@localhost:5432/datamind
+
+# Docker Compose 内部（容器间通信）
+DATABASE_URL=postgresql://datamind:datamind123@postgres:5432/datamind
+```
+
+#### 5. Docker / Alpine Linux 特殊处理
+
+部署到 Alpine Linux 容器时，Prisma 需要 OpenSSL 库：
+
+```dockerfile
+# 必须在 Dockerfile 中安装 openssl
+RUN apk add --no-cache openssl
+```
+
+详见上文 [Prisma + Alpine Linux 问题](#prisma--alpine-linux-问题) 章节。
+
+#### 6. 数据丢失风险
+
+`migrate dev` 在以下情况会提示重置数据库（**开发环境数据会丢失**）：
+- 迁移文件被手动修改导致不一致
+- 数据库状态与迁移历史不匹配
+
+**建议**：开发环境重置前，先备份重要数据或使用 `prisma db seed` 恢复。
+
+---
+
+## Railway 部署时的 Prisma 迁移
+
+### 核心方案：启动时自动执行迁移
+
+在 Railway 上，数据库迁移应在**应用启动前**自动执行，而不是手动操作。这是通过修改 `startCommand` 实现的。
+
+### 配置方式
+
+#### 方式一：使用 `railway.json`（推荐）
+
+修改 [backend/railway.json](file:///Users/li.pc/workload/kiro-projs/DataMind/backend/railway.json) 的 `deploy.startCommand`：
+
+```json
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "build": {
+    "builder": "NIXPACKS",
+    "buildCommand": "npm install && npm run build"
+  },
+  "deploy": {
+    "startCommand": "npx prisma migrate deploy && node dist/index.js",
+    "healthcheckPath": "/health",
+    "healthcheckTimeout": 100,
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 10
+  }
+}
+```
+
+**关键点**：`npx prisma migrate deploy && node dist/index.js`
+- 每次部署启动时，先执行 `migrate deploy` 应用待执行的迁移
+- 迁移成功后，再启动 Node.js 应用
+- `&&` 确保迁移失败时应用不会启动
+
+#### 方式二：使用 `package.json` 脚本
+
+如果没有 `railway.json`，可以在 `package.json` 中配置：
+
+```json
+{
+  "scripts": {
+    "start": "npx prisma migrate deploy && node dist/index.js"
+  }
+}
+```
+
+### Railway 部署流程
+
+```
+代码推送 → Railway 构建 → 启动容器 → migrate deploy → 启动应用
+```
+
+| 阶段 | 执行内容 | 说明 |
+|------|----------|------|
+| **Build** | `npm install && npm run build` | 安装依赖、编译 TypeScript |
+| **Deploy** | `npx prisma migrate deploy && node dist/index.js` | 应用迁移、启动服务 |
+
+### 环境变量配置
+
+Railway 会自动为同一项目内的 PostgreSQL 服务注入 `DATABASE_URL`，无需手动设置。如果需要自定义，在 Railway Dashboard → Backend 服务 → Variables 中添加：
+
+```
+DATABASE_URL=${{Postgres.DATABASE_URL}}
+```
+
+> `Postgres` 是你的 PostgreSQL 服务名称，Railway 会自动解析为实际连接字符串。
+
+### 重要注意事项
+
+#### 1. 迁移文件必须先提交到 Git
+
+Railway 部署时读取的是仓库中的迁移文件，**本地生成的迁移必须 push 后才能生效**：
+
+```bash
+# 本地开发：修改 schema 后创建迁移
+npx prisma migrate dev --name add_new_feature
+
+# 必须提交到 Git
+git add prisma/migrations/
+git commit -m "feat: add new feature migration"
+git push origin main
+```
+
+#### 2. 使用 `migrate deploy` 而非 `migrate dev`
+
+| | `migrate dev` | `migrate deploy` |
+|--|---------------|------------------|
+| Railway 适用性 | ❌ 不适用 | ✅ 适用 |
+| 交互式提示 | 有（会卡住） | 无 |
+| 生成新迁移文件 | 会 | 不会 |
+| 行为 | 开发工具 | 纯执行 |
+
+> `migrate dev` 设计用于开发环境，会尝试创建新迁移并提示交互式确认，在 Railway 无头环境中会**卡住导致部署失败**。
+
+#### 3. 首次部署（空数据库）
+
+`migrate deploy` 会自动按顺序执行 `prisma/migrations/` 下的所有迁移，从零创建完整的数据库结构，无需额外操作。
+
+#### 4. 迁移失败处理
+
+如果迁移失败（如 SQL 语法错误）：
+1. 查看 Railway 部署日志定位错误
+2. 修复本地迁移文件或 schema
+3. 重新创建迁移（开发环境）
+4. 提交并推送
+5. Railway 自动重新部署
+
+#### 5. Seed 数据
+
+如果需要首次部署时填充初始数据，可以在 `startCommand` 中加入 seed：
+
+```json
+{
+  "deploy": {
+    "startCommand": "npx prisma migrate deploy && npx prisma db seed && node dist/index.js"
+  }
+}
+```
+
+> ⚠️ 注意：`db seed` 默认会重复执行，建议只在首次部署时运行，或在 seed 脚本中添加幂等性检查（如 `upsert` 而非 `create`）。

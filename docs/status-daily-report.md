@@ -2,6 +2,128 @@
 
 ---
 
+# 2026-05-13
+
+## 今日开发目标
+
+1. **用 docker-compose 搭建 PostgreSQL 和 Redis**，用于本地开发测试
+2. **生成数据库迁移文件**（`prisma migrate dev --name init`）
+3. **保证 login、register 流程成功**（bcrypt 密码哈希 + 真实密码验证）
+
+---
+
+# 2026-05-12
+
+## Railway 部署问题排查
+
+### 1. Prisma 迁移文件缺失
+
+**问题**：Railway 部署 backend 时报错 `No migration found in prisma/migrations`。
+
+**原因**：`prisma/migrations/` 目录不存在，项目从未执行过 `prisma migrate dev`，因此没有生成迁移文件。`prisma migrate deploy`（生产环境迁移命令）要求该目录下有迁移文件才能执行。
+
+**解决方案**：需要在本地执行 `prisma migrate dev --name init` 生成初始迁移文件，然后提交到仓库。本地执行需要可连接的 PostgreSQL 数据库：
+
+```bash
+# 方式1：使用 Docker 临时启动 PostgreSQL
+docker run --name temp-postgres \
+  -e POSTGRES_USER=datamind \
+  -e POSTGRES_PASSWORD=datamind123 \
+  -e POSTGRES_DB=datamind \
+  -p 5432:5432 -d postgres:15
+
+cd backend
+DATABASE_URL="postgresql://datamind:datamind123@localhost:5432/datamind" npx prisma migrate dev --name init
+
+# 清理
+docker stop temp-postgres && docker rm temp-postgres
+```
+
+**状态**：⚠️ 待执行（本地无运行中的 PostgreSQL）
+
+### 2. 默认管理员用户配置
+
+**现状分析**：
+
+- `prisma/seed.ts` 中硬编码了管理员用户：
+  ```ts
+  email: "admin@datamind.ai",
+  password: "hashed-password",  // ← 明文占位符，未哈希
+  role: "ADMIN",
+  ```
+- 登录接口 `POST /api/auth/login` 密码验证为 TODO 状态
+- 注册接口 `POST /api/auth/register` 密码存储为明文
+
+**安全方案讨论**：
+
+| 方案 | 安全性 | 说明 |
+|------|--------|------|
+| A. 环境变量 + bcrypt 哈希 | ★★★★ | 密码通过 Railway 环境变量传入，seed 时 bcrypt 哈希后存库。源码中不保留密码。 |
+| B. 手动执行 seed 命令 | ★★★ | 不自动 seed，手动在 Railway 终端执行。密码存在于命令历史中。 |
+| C. 首次启动生成随机密码 | ★★★★ | 自动生成随机强密码打印到日志，通过日志查看。 |
+
+**共识**：seed 设置的密码为**初始密码**，用户首次登录后必须修改。需在 User 模型增加 `mustChangePassword` 字段。
+
+**待实施**：
+- [ ] 安装 `bcrypt` 依赖
+- [ ] 修改 `seed.ts`：从环境变量读取管理员信息 + bcrypt 哈希
+- [ ] 更新 `.env.example` 添加 `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME`
+- [ ] User 模型增加 `mustChangePassword` 字段
+- [ ] 登录接口实现真实密码验证（bcrypt compare）
+- [ ] 登录响应中包含 `mustChangePassword` 标记
+- [ ] 前端：检测到 `mustChangePassword=true` 时强制跳转修改密码页面
+
+### 3. Railway 内部域名与服务间通信
+
+**关键发现**：
+
+1. **内部域名必须保持为 `<服务名>.railway.internal`**
+   - Railway 为每个服务分配内部域名，格式为 `<service-name>.railway.internal`
+   - 其他服务必须使用此内部域名才能访问，不能使用外部公网域名
+   - 例如：frontend 代理到 backend 时，必须用 `http://backend.railway.internal:4000`
+
+2. **使用变量 + 引用方式获取其他服务域名**
+   - 在 Railway 中，不要硬编码其他服务的域名
+   - 应使用 Railway 的**变量引用**语法：`${{ backend.RAILWAY_PRIVATE_DOMAIN }}`
+   - 在服务的 Variables 面板中配置：
+     ```
+     BACKEND_INTERNAL_URL=http://${{ backend.RAILWAY_PRIVATE_DOMAIN }}:4000
+     ```
+   - 这样当 backend 服务重建/迁移时，域名会自动更新，无需手动修改
+
+**配置示例**（frontend 服务变量）：
+```
+BACKEND_INTERNAL_URL=http://${{ backend.RAILWAY_PRIVATE_DOMAIN }}:4000
+```
+
+**配置示例**（backend 服务变量）：
+```
+DATABASE_URL=postgresql://datamind:datamind123@${{ postgres.RAILWAY_PRIVATE_DOMAIN }}:5432/datamind
+```
+
+## 当前架构图
+
+```
+浏览器
+  ↓ (HTTPS)
+Next.js Frontend (frontend.railway.internal:3000)
+  ↓ API Route 代理 (内部网络)
+Express Backend (backend.railway.internal:4000)
+  ↓ Prisma
+PostgreSQL (postgres.railway.internal:5432)
+```
+
+## 待办事项更新
+
+- [ ] 生成 Prisma 迁移文件（`prisma migrate dev --name init`）
+- [ ] 实现管理员初始密码安全方案（环境变量 + bcrypt + mustChangePassword）
+- [ ] Railway 变量配置改用引用语法（`${{ service.RAILWAY_PRIVATE_DOMAIN }}`）
+- [ ] 注册页面对接 Backend
+- [ ] JWT 真实实现（bcrypt + jsonwebtoken）
+- [ ] 认证路由守卫
+
+---
+
 # 2026-05-07
 
 ## Railway 部署实践
