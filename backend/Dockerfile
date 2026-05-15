@@ -33,4 +33,4 @@ COPY --from=builder /app/prisma ./prisma
 EXPOSE 4000
 
 # 执行数据库迁移、seed，然后启动应用
-CMD sh -c "npx prisma migrate deploy && npx prisma db seed && node dist/index.js"
+CMD sh -c "npx prisma migrate deploy && node --import tsx prisma/seed.ts && node dist/index.js"
