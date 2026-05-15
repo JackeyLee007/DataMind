@@ -25,7 +25,8 @@ ENV NODE_ENV=production
 
 RUN apk add --no-cache openssl
 
-COPY --from=deps /app/node_modules ./node_modules
+# 从 builder 阶段复制完整的 node_modules（包含 devDependencies，tsx 需要）
+COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/prisma ./prisma
