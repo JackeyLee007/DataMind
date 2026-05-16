@@ -1,6 +1,8 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 import { PrismaClient } from "@prisma/client";
 
 dotenv.config();
@@ -8,6 +10,39 @@ dotenv.config();
 const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 4000;
+
+const JWT_SECRET = process.env.JWT_SECRET || "datamind-secret-key";
+const SALT_ROUNDS = 10;
+
+function generateToken(userId: string): string {
+  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: "7d" });
+}
+
+function verifyToken(token: string): { userId: string } | null {
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
+    return decoded;
+  } catch {
+    return null;
+  }
+}
+
+function authenticateToken(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+
+  if (!token) {
+    return res.status(401).json({ error: "未提供认证令牌" });
+  }
+
+  const decoded = verifyToken(token);
+  if (!decoded) {
+    return res.status(403).json({ error: "令牌无效或已过期" });
+  }
+
+  (req as any).userId = decoded.userId;
+  next();
+}
 
 app.use(cors());
 app.use(express.json());
@@ -20,18 +55,23 @@ app.get("/health", (_req, res) => {
 // ===== 用户相关 =====
 app.post("/api/auth/login", async (req, res) => {
   const { email, password } = req.body;
-  
+
   try {
     const user = await prisma.user.findUnique({ where: { email } });
-    
+
     if (!user) {
-      return res.status(401).json({ error: "用户不存在" });
+      return res.status(401).json({ error: "用户不存在或密码错误" });
     }
-    
-    // TODO: 添加密码验证逻辑
-    
+
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) {
+      return res.status(401).json({ error: "用户不存在或密码错误" });
+    }
+
+    const token = generateToken(user.id);
+
     res.json({
-      token: "mock-jwt-token",
+      token,
       user: { id: user.id, email: user.email, name: user.name },
     });
   } catch (error) {
@@ -42,29 +82,52 @@ app.post("/api/auth/login", async (req, res) => {
 
 app.post("/api/auth/register", async (req, res) => {
   const { name, email, password } = req.body;
-  
+
   try {
     const existingUser = await prisma.user.findUnique({ where: { email } });
-    
+
     if (existingUser) {
       return res.status(409).json({ error: "邮箱已被注册" });
     }
-    
+
+    const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+
     const user = await prisma.user.create({
       data: {
         email,
         name,
-        password, // TODO: 添加密码哈希
+        password: hashedPassword,
       },
     });
-    
+
+    const token = generateToken(user.id);
+
     res.json({
-      token: "mock-jwt-token",
+      token,
       user: { id: user.id, email: user.email, name: user.name },
     });
   } catch (error) {
     console.error("Register error:", error);
     res.status(500).json({ error: "注册失败" });
+  }
+});
+
+app.get("/api/auth/me", authenticateToken, async (req, res) => {
+  try {
+    const userId = (req as any).userId;
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, name: true, role: true, plan: true },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: "用户不存在" });
+    }
+
+    res.json({ user });
+  } catch (error) {
+    console.error("Get me error:", error);
+    res.status(500).json({ error: "获取用户信息失败" });
   }
 });
 

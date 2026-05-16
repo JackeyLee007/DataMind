@@ -2,6 +2,186 @@
 
 ---
 
+# 2026-05-14
+
+## Railway 部署 Prisma Seed 问题解决
+
+### 问题背景
+在 Railway 上部署 backend 时，`prisma migrate deploy` 成功后执行 `prisma db seed` 失败，经历多次尝试才最终解决。
+
+### 失败原因与解决过程
+
+#### 1. 缺少 `prisma.seed` 配置
+**错误**：`Error: To configure seeding in your project you need to add a "prisma.seed" property in your package.json`
+
+**原因**：Prisma 需要知道如何执行 seed 脚本，必须在 `package.json` 中配置 `prisma.seed` 字段。
+
+**解决**：
+```json
+{
+  "prisma": {
+    "seed": "node --import tsx prisma/seed.ts"
+  }
+}
+```
+
+#### 2. `tsx` 命令找不到（ENOENT）
+**错误**：`Error: Command failed with ENOENT: tsx prisma/seed.ts spawn tsx ENOENT`
+
+**原因**：
+- Dockerfile 使用多阶段构建，`runner` 阶段只复制了生产依赖的 `node_modules`
+- `tsx` 是开发依赖（`devDependencies`），不在生产依赖中
+- `npx prisma db seed` 执行时需要 `tsx`，但找不到
+
+**解决**：修改 Dockerfile，从 `builder` 阶段复制完整的 `node_modules`（包含所有依赖）：
+```dockerfile
+# 从 builder 阶段复制完整的 node_modules（包含 devDependencies，tsx 需要）
+COPY --from=builder /app/node_modules ./node_modules
+```
+
+#### 3. Seed 脚本重复执行问题
+**潜在问题**：每次部署都会执行 seed，如果数据已存在会报错或创建重复数据。
+
+**解决**：修改 `prisma/seed.ts` 为幂等操作，先检查数据是否存在：
+```typescript
+// 检查是否已存在管理员，避免重复创建
+let user = await prisma.user.findUnique({
+  where: { email: "admin@datamind.ai" },
+});
+
+if (!user) {
+  user = await prisma.user.create({ ... });
+} else {
+  console.log("Admin user already exists, skipping...");
+}
+```
+
+### 最终成功的配置
+
+**backend/package.json**：
+```json
+{
+  "prisma": {
+    "seed": "node --import tsx prisma/seed.ts"
+  },
+  "scripts": {
+    "db:seed": "tsx prisma/seed.ts"
+  }
+}
+```
+
+**backend/Dockerfile**（关键部分）：
+```dockerfile
+# 运行阶段
+FROM base AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+
+RUN apk add --no-cache openssl
+
+# 从 builder 阶段复制完整的 node_modules（包含 devDependencies）
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/prisma ./prisma
+
+EXPOSE 4000
+
+# 执行数据库迁移、seed，然后启动应用
+CMD sh -c "npx prisma migrate deploy && node --import tsx prisma/seed.ts && node dist/index.js"
+```
+
+### 关键经验总结
+
+| 问题 | 原因 | 解决方案 |
+|------|------|----------|
+| Prisma 找不到 seed 命令 | 缺少 `prisma.seed` 配置 | 在 package.json 中添加配置 |
+| tsx 命令不存在 | runner 阶段只有生产依赖 | 从 builder 阶段复制完整 node_modules |
+| Seed 重复执行报错 | 数据已存在时再次插入 | 修改 seed.ts 为幂等操作 |
+
+### 部署流程
+现在 Railway 部署时自动执行：
+1. `npx prisma migrate deploy` - 应用数据库迁移
+2. `node --import tsx prisma/seed.ts` - 执行 seed（幂等，不会重复创建）
+3. `node dist/index.js` - 启动应用
+
+## 高优先级任务完成
+
+### 1. 注册页面对接 Backend API
+
+**修改文件**：`frontend/src/app/(auth)/register/page.tsx`
+
+**变更内容**：
+- 添加 `useAuth` hook 调用 `register` 方法
+- 添加表单验证（姓名、邮箱、密码必填，密码至少8位）
+- 添加错误提示和加载状态
+- 注册成功后跳转到 `/dashboard`
+
+### 2. bcrypt 密码加密
+
+**修改文件**：`backend/src/index.ts`
+
+**变更内容**：
+- 安装 `bcrypt` 和 `@types/bcrypt`
+- 注册时使用 `bcrypt.hash(password, SALT_ROUNDS)` 加密密码
+- 登录时使用 `bcrypt.compare(password, user.password)` 验证密码
+
+### 3. JWT 认证实现
+
+**修改文件**：`backend/src/index.ts`
+
+**变更内容**：
+- 安装 `jsonwebtoken` 和 `@types/jsonwebtoken`
+- 添加 `generateToken(userId)` 函数，生成 7 天有效期的 JWT
+- 添加 `verifyToken(token)` 函数，验证 JWT 有效性
+- 添加 `authenticateToken` 中间件，保护需要认证的路由
+- 新增 `GET /api/auth/me` 接口，返回当前用户信息
+
+### 4. 前端认证路由守卫
+
+**修改文件**：
+- `frontend/src/hooks/useAuth.ts`
+- `frontend/src/app/(workspace)/layout.tsx`
+
+**变更内容**：
+- `useAuth` hook 添加 `isLoading` 状态
+- 页面加载时自动验证 token 有效性（调用 `/api/auth/me`）
+- `WorkspaceLayout` 添加认证检查，未登录用户自动跳转到 `/login`
+- 认证页面（dashboard、chat、settings）受保护
+
+### 关键代码示例
+
+**后端 JWT 认证中间件**：
+```typescript
+function authenticateToken(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+
+  if (!token) {
+    return res.status(401).json({ error: "未提供认证令牌" });
+  }
+
+  const decoded = verifyToken(token);
+  if (!decoded) {
+    return res.status(403).json({ error: "令牌无效或已过期" });
+  }
+
+  (req as any).userId = decoded.userId;
+  next();
+}
+```
+
+**前端路由守卫**：
+```typescript
+useEffect(() => {
+  if (!isLoading && !isAuthenticated) {
+    router.push("/login");
+  }
+}, [isLoading, isAuthenticated, router]);
+```
+
+---
+
 # 2026-05-13
 
 ## 今日开发目标

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { api } from "@/lib/api";
 
 export interface User {
@@ -33,7 +33,29 @@ function getStoredAuth(): { user: User | null; token: string | null } {
 export function useAuth() {
   const stored = useMemo(() => getStoredAuth(), []);
   const [user, setUser] = useState<User | null>(stored.user);
+  const [isLoading, setIsLoading] = useState(true);
   const isAuthenticated = user !== null;
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { token } = getStoredAuth();
+      if (token) {
+        try {
+          const result = await api.get<{ user: User }>("/api/auth/me");
+          if (result.data) {
+            setUser(result.data.user);
+          } else {
+            logout();
+          }
+        } catch {
+          logout();
+        }
+      }
+      setIsLoading(false);
+    };
+
+    checkAuth();
+  }, []);
 
   const login = useCallback(async (email: string, password: string) => {
     const result = await api.post<{ token: string; user: User }>(
@@ -82,7 +104,7 @@ export function useAuth() {
 
   return {
     user,
-    isLoading: false,
+    isLoading,
     isAuthenticated,
     login,
     register,

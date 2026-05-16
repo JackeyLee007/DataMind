@@ -1,6 +1,8 @@
 import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcrypt";
 
 const prisma = new PrismaClient();
+const SALT_ROUNDS = 10;
 
 async function main() {
   console.log("Start seeding...");
@@ -11,11 +13,12 @@ async function main() {
   });
 
   if (!user) {
+    const hashedPassword = await bcrypt.hash("admin-123", SALT_ROUNDS);
     user = await prisma.user.create({
       data: {
         email: "admin@datamind.ai",
         name: "管理员",
-        password: "admin-123",
+        password: hashedPassword,
         role: "ADMIN",
         plan: "ENTERPRISE",
       },
