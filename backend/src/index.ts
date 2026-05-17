@@ -48,13 +48,23 @@ app.post("/api/auth/login", async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    // 查找无租户的用户（系统管理员）或指定租户的用户
-    const user = await prisma.user.findFirst({
+    // 先查找无租户的用户（系统管理员）
+    let user = await prisma.user.findFirst({
       where: {
         email,
-        tenantId: null, // 优先查找无租户的用户（管理员）
+        tenantId: null,
       },
     });
+
+    // 如果没找到，再查找有租户的用户
+    if (!user) {
+      user = await prisma.user.findFirst({
+        where: {
+          email,
+          tenantId: { not: null },
+        },
+      });
+    }
 
     if (!user) {
       return res.status(401).json({ error: "用户不存在或密码错误" });
