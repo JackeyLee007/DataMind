@@ -3,7 +3,9 @@ import cors from "cors";
 import dotenv from "dotenv";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Role, TenantRole } from "@prisma/client";
+import { authenticateToken, AuthRequest } from "./middleware/auth";
+import datasourceRoutes from "./routes/datasources";
 
 dotenv.config();
 
@@ -14,34 +16,23 @@ const PORT = process.env.PORT || 4000;
 const JWT_SECRET = process.env.JWT_SECRET || "datamind-secret-key";
 const SALT_ROUNDS = 10;
 
-function generateToken(userId: string): string {
-  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: "7d" });
+interface JWTPayload {
+  userId: string;
+  tenantId?: string | null;
+  tenantRole?: string | null;
+  role: string;
 }
 
-function verifyToken(token: string): { userId: string } | null {
+function generateToken(payload: JWTPayload): string {
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
+}
+
+function verifyToken(token: string): JWTPayload | null {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
-    return decoded;
+    return jwt.verify(token, JWT_SECRET) as JWTPayload;
   } catch {
     return null;
   }
-}
-
-function authenticateToken(req: express.Request, res: express.Response, next: express.NextFunction) {
-  const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1];
-
-  if (!token) {
-    return res.status(401).json({ error: "未提供认证令牌" });
-  }
-
-  const decoded = verifyToken(token);
-  if (!decoded) {
-    return res.status(403).json({ error: "令牌无效或已过期" });
-  }
-
-  (req as any).userId = decoded.userId;
-  next();
 }
 
 app.use(cors());
@@ -57,7 +48,13 @@ app.post("/api/auth/login", async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    const user = await prisma.user.findUnique({ where: { email } });
+    // 查找无租户的用户（系统管理员）或指定租户的用户
+    const user = await prisma.user.findFirst({
+      where: {
+        email,
+        tenantId: null, // 优先查找无租户的用户（管理员）
+      },
+    });
 
     if (!user) {
       return res.status(401).json({ error: "用户不存在或密码错误" });
@@ -68,11 +65,23 @@ app.post("/api/auth/login", async (req, res) => {
       return res.status(401).json({ error: "用户不存在或密码错误" });
     }
 
-    const token = generateToken(user.id);
+    const token = generateToken({
+      userId: user.id,
+      tenantId: user.tenantId,
+      tenantRole: user.tenantRole,
+      role: user.role,
+    });
 
     res.json({
       token,
-      user: { id: user.id, email: user.email, name: user.name },
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        tenantId: user.tenantId,
+        tenantRole: user.tenantRole,
+      },
     });
   } catch (error) {
     console.error("Login error:", error);
@@ -81,30 +90,99 @@ app.post("/api/auth/login", async (req, res) => {
 });
 
 app.post("/api/auth/register", async (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, email, password, tenantName, inviteCode } = req.body;
 
   try {
-    const existingUser = await prisma.user.findUnique({ where: { email } });
-
-    if (existingUser) {
-      return res.status(409).json({ error: "邮箱已被注册" });
-    }
-
     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
-    const user = await prisma.user.create({
-      data: {
-        email,
-        name,
-        password: hashedPassword,
-      },
+    // 如果有邀请码，加入现有租户
+    if (inviteCode) {
+      // TODO: 验证邀请码并获取 tenantId
+      return res.status(501).json({ error: "邀请码功能待实现" });
+    }
+
+    // 系统管理员注册（role=ADMIN）
+    if (req.body.role === Role.ADMIN) {
+      const existingAdmin = await prisma.user.findFirst({
+        where: { email, tenantId: null },
+      });
+
+      if (existingAdmin) {
+        return res.status(409).json({ error: "管理员邮箱已被注册" });
+      }
+
+      const user = await prisma.user.create({
+        data: {
+          email,
+          name,
+          password: hashedPassword,
+          role: Role.ADMIN,
+        },
+      });
+
+      const token = generateToken({
+        userId: user.id,
+        tenantId: null,
+        tenantRole: null,
+        role: user.role,
+      });
+
+      return res.json({
+        token,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+        },
+      });
+    }
+
+    // 普通用户注册 - 创建新租户
+    const result = await prisma.$transaction(async (tx) => {
+      // 创建租户
+      const tenant = await tx.tenant.create({
+        data: {
+          name: tenantName || name || email.split("@")[0],
+        },
+      });
+
+      // 创建用户，设置为租户 OWNER
+      const user = await tx.user.create({
+        data: {
+          email,
+          name,
+          password: hashedPassword,
+          role: Role.USER,
+          tenantId: tenant.id,
+          tenantRole: TenantRole.OWNER,
+        },
+      });
+
+      return { tenant, user };
     });
 
-    const token = generateToken(user.id);
+    const token = generateToken({
+      userId: result.user.id,
+      tenantId: result.user.tenantId,
+      tenantRole: result.user.tenantRole,
+      role: result.user.role,
+    });
 
     res.json({
       token,
-      user: { id: user.id, email: user.email, name: user.name },
+      user: {
+        id: result.user.id,
+        email: result.user.email,
+        name: result.user.name,
+        role: result.user.role,
+        tenantId: result.user.tenantId,
+        tenantRole: result.user.tenantRole,
+      },
+      tenant: {
+        id: result.tenant.id,
+        name: result.tenant.name,
+      },
     });
   } catch (error) {
     console.error("Register error:", error);
@@ -112,52 +190,192 @@ app.post("/api/auth/register", async (req, res) => {
   }
 });
 
-app.get("/api/auth/me", authenticateToken, async (req, res) => {
+app.get("/api/auth/me", authenticateToken, async (req: AuthRequest, res) => {
   try {
-    const userId = (req as any).userId;
+    const userId = req.userId;
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, name: true, role: true, plan: true },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        tenantId: true,
+        tenantRole: true,
+        plan: true,
+      },
     });
 
     if (!user) {
       return res.status(404).json({ error: "用户不存在" });
     }
 
-    res.json({ user });
+    // 如果有租户，返回租户信息
+    let tenant = null;
+    if (user.tenantId) {
+      tenant = await prisma.tenant.findUnique({
+        where: { id: user.tenantId },
+        select: { id: true, name: true, status: true },
+      });
+    }
+
+    res.json({ user, tenant });
   } catch (error) {
     console.error("Get me error:", error);
     res.status(500).json({ error: "获取用户信息失败" });
   }
 });
 
-// ===== 数据源 =====
-app.get("/api/datasources", async (_req, res) => {
+// ===== 租户管理 =====
+app.post("/api/tenants/invite", authenticateToken, async (req: AuthRequest, res) => {
   try {
-    const datasources = await prisma.datasource.findMany();
-    res.json(datasources);
+    const userId = req.userId!;
+    const { tenantId } = req;
+    const { email, role = TenantRole.MEMBER } = req.body;
+
+    if (!tenantId) {
+      return res.status(400).json({ error: "您不属于任何租户" });
+    }
+
+    // 检查当前用户是否有权限邀请（OWNER 或 ADMIN）
+    const currentUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { tenantRole: true },
+    });
+
+    if (!currentUser?.tenantRole || (currentUser.tenantRole !== TenantRole.OWNER && currentUser.tenantRole !== TenantRole.ADMIN)) {
+      return res.status(403).json({ error: "无权邀请成员" });
+    }
+
+    // TODO: 生成邀请码并发送邮件
+    const inviteCode = Math.random().toString(36).substring(2, 15);
+
+    res.json({
+      inviteCode,
+      message: `邀请已生成，请发送给 ${email}`,
+    });
   } catch (error) {
-    console.error("Get datasources error:", error);
-    res.status(500).json({ error: "获取数据源失败" });
+    console.error("Invite error:", error);
+    res.status(500).json({ error: "邀请失败" });
   }
 });
 
-app.post("/api/datasources", async (req, res) => {
+app.get("/api/tenants/members", authenticateToken, async (req: AuthRequest, res) => {
   try {
-    const datasource = await prisma.datasource.create({
-      data: req.body,
+    const { tenantId } = req;
+
+    if (!tenantId) {
+      return res.status(400).json({ error: "您不属于任何租户" });
+    }
+
+    const members = await prisma.user.findMany({
+      where: { tenantId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        tenantRole: true,
+        status: true,
+        createdAt: true,
+      },
     });
-    res.json(datasource);
+
+    res.json(members);
   } catch (error) {
-    console.error("Create datasource error:", error);
-    res.status(500).json({ error: "创建数据源失败" });
+    console.error("Get members error:", error);
+    res.status(500).json({ error: "获取成员列表失败" });
   }
 });
+
+app.patch("/api/tenants/members/:id/role", authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.userId!;
+    const { tenantId } = req;
+    const memberId = String(req.params.id);
+    const { role } = req.body;
+
+    if (!tenantId) {
+      return res.status(400).json({ error: "您不属于任何租户" });
+    }
+
+    // 检查当前用户是否是 OWNER
+    const currentUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { tenantRole: true },
+    });
+
+    if (currentUser?.tenantRole !== TenantRole.OWNER) {
+      return res.status(403).json({ error: "只有 OWNER 可以修改角色" });
+    }
+
+    // 不能修改自己的角色
+    if (memberId === userId) {
+      return res.status(400).json({ error: "不能修改自己的角色" });
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: memberId, tenantId },
+      data: { tenantRole: role },
+    });
+
+    res.json(updated);
+  } catch (error) {
+    console.error("Update role error:", error);
+    res.status(500).json({ error: "更新角色失败" });
+  }
+});
+
+app.delete("/api/tenants/members/:id", authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.userId!;
+    const { tenantId } = req;
+    const memberId = String(req.params.id);
+
+    if (!tenantId) {
+      return res.status(400).json({ error: "您不属于任何租户" });
+    }
+
+    // 检查当前用户是否有权限移除（OWNER 或 ADMIN）
+    const currentUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { tenantRole: true },
+    });
+
+    if (!currentUser?.tenantRole || (currentUser.tenantRole !== TenantRole.OWNER && currentUser.tenantRole !== TenantRole.ADMIN)) {
+      return res.status(403).json({ error: "无权移除成员" });
+    }
+
+    // 不能移除自己
+    if (memberId === userId) {
+      return res.status(400).json({ error: "不能移除自己" });
+    }
+
+    // 将用户移出租户
+    await prisma.user.update({
+      where: { id: memberId, tenantId },
+      data: { tenantId: null, tenantRole: null },
+    });
+
+    res.status(204).send();
+  } catch (error) {
+    console.error("Remove member error:", error);
+    res.status(500).json({ error: "移除成员失败" });
+  }
+});
+
+// ===== 数据源 =====
+app.use("/api/datasources", datasourceRoutes);
 
 // ===== 对话 / 分析 =====
-app.get("/api/chats", async (_req, res) => {
+app.get("/api/chats", authenticateToken, async (req: AuthRequest, res) => {
   try {
+    const userId = req.userId!;
+    const { tenantId } = req;
+
+    const where = tenantId ? { tenantId } : { userId };
+
     const chats = await prisma.chat.findMany({
+      where,
       orderBy: { updatedAt: "desc" },
     });
     res.json(chats);
@@ -167,12 +385,16 @@ app.get("/api/chats", async (_req, res) => {
   }
 });
 
-app.post("/api/chats", async (req, res) => {
+app.post("/api/chats", authenticateToken, async (req: AuthRequest, res) => {
   try {
+    const userId = req.userId!;
+    const { tenantId } = req;
+
     const chat = await prisma.chat.create({
       data: {
         title: req.body.title || "新对话",
-        userId: req.body.userId,
+        userId,
+        tenantId,
       },
     });
     res.json(chat);
@@ -182,35 +404,47 @@ app.post("/api/chats", async (req, res) => {
   }
 });
 
-app.post("/api/chats/:id/messages", async (req, res) => {
-  const { id } = req.params;
+app.post("/api/chats/:id/messages", authenticateToken, async (req: AuthRequest, res) => {
+  const chatId = String(req.params.id);
   const { content } = req.body;
-  
+
   try {
+    // 验证对话权限
+    const chat = await prisma.chat.findFirst({
+      where: {
+        id: chatId,
+        ...(req.tenantId ? { tenantId: req.tenantId } : { userId: req.userId }),
+      },
+    });
+
+    if (!chat) {
+      return res.status(404).json({ error: "对话不存在" });
+    }
+
     // 保存用户消息
     await prisma.message.create({
       data: {
-        chatId: id,
+        chatId,
         role: "user",
         content,
       },
     });
-    
+
     // 模拟 AI 回复
     const assistantMessage = await prisma.message.create({
       data: {
-        chatId: id,
+        chatId,
         role: "assistant",
         content: `收到你的问题："${content}"。这是一个模拟回复。`,
       },
     });
-    
+
     // 更新对话时间
     await prisma.chat.update({
-      where: { id },
+      where: { id: chatId },
       data: { updatedAt: new Date() },
     });
-    
+
     res.json(assistantMessage);
   } catch (error) {
     console.error("Create message error:", error);
@@ -219,14 +453,26 @@ app.post("/api/chats/:id/messages", async (req, res) => {
 });
 
 // ===== 仪表盘统计 =====
-app.get("/api/dashboard/stats", async (_req, res) => {
+app.get("/api/dashboard/stats", authenticateToken, async (req: AuthRequest, res) => {
   try {
+    const { tenantId, userId, role } = req;
+
+    let where: any = {};
+    if (role === Role.ADMIN) {
+      // 管理员可以查看全局统计
+      where = {};
+    } else if (tenantId) {
+      where = { tenantId };
+    } else {
+      where = { userId };
+    }
+
     const [chats, datasources, reports] = await Promise.all([
-      prisma.chat.count(),
-      prisma.datasource.count(),
-      prisma.report.count(),
+      prisma.chat.count({ where }),
+      prisma.datasource.count({ where }),
+      prisma.report.count({ where }),
     ]);
-    
+
     res.json({
       chats,
       datasources,
@@ -240,13 +486,21 @@ app.get("/api/dashboard/stats", async (_req, res) => {
 });
 
 // ===== 管理后台 =====
-app.get("/api/admin/users", async (_req, res) => {
+app.get("/api/admin/users", authenticateToken, async (req: AuthRequest, res) => {
   try {
+    // 只允许系统管理员访问
+    if (req.role !== Role.ADMIN) {
+      return res.status(403).json({ error: "无权访问" });
+    }
+
     const users = await prisma.user.findMany({
       select: {
         id: true,
         name: true,
         email: true,
+        role: true,
+        tenantId: true,
+        tenantRole: true,
         plan: true,
         status: true,
       },
@@ -258,15 +512,22 @@ app.get("/api/admin/users", async (_req, res) => {
   }
 });
 
-app.get("/api/admin/stats", async (_req, res) => {
+app.get("/api/admin/stats", authenticateToken, async (req: AuthRequest, res) => {
   try {
-    const [totalUsers, activeSessions] = await Promise.all([
+    // 只允许系统管理员访问
+    if (req.role !== Role.ADMIN) {
+      return res.status(403).json({ error: "无权访问" });
+    }
+
+    const [totalUsers, totalTenants, activeSessions] = await Promise.all([
       prisma.user.count(),
+      prisma.tenant.count(),
       prisma.chat.count({ where: { updatedAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } } }),
     ]);
-    
+
     res.json({
       totalUsers,
+      totalTenants,
       monthlyRevenue: 0, // TODO: 添加收入统计
       activeSessions,
       conversionRate: 0, // TODO: 添加转化率统计

@@ -7,21 +7,40 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
+model Tenant {
   id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  password  String
-  role      Role     @default(USER)
-  plan      Plan     @default(FREE)
-  status    Status   @default(ACTIVE)
+  name      String
+  status    TenantStatus @default(ACTIVE)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  users        User[]
   chats        Chat[]
   datasources  Datasource[]
   reports      Report[]
 
+  @@map("tenants")
+}
+
+model User {
+  id          String    @id @default(cuid())
+  email       String
+  name        String?
+  password    String
+  role        Role      @default(USER)
+  tenantId    String?   @map("tenant_id")
+  tenantRole  TenantRole? @map("tenant_role")
+  plan        Plan      @default(FREE)
+  status      Status    @default(ACTIVE)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  tenant       Tenant?      @relation(fields: [tenantId], references: [id])
+  chats        Chat[]
+  datasources  Datasource[]
+  reports      Report[]
+
+  @@unique([email, tenantId])
   @@map("users")
 }
 
@@ -29,10 +48,12 @@ model Chat {
   id        String   @id @default(cuid())
   title     String
   userId    String   @map("user_id")
+  tenantId  String?  @map("tenant_id")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   user     User      @relation(fields: [userId], references: [id])
+  tenant   Tenant?   @relation(fields: [tenantId], references: [id])
   messages Message[]
 
   @@map("chats")
@@ -51,18 +72,53 @@ model Message {
 }
 
 model Datasource {
-  id        String   @id @default(cuid())
-  name      String
-  type      String   // excel | csv | pdf | postgres | google_sheets
-  size      String?
-  url       String?
-  userId    String   @map("user_id")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id             String           @id @default(cuid())
+  name           String
+  type           DatasourceType
+  status         DatasourceStatus @default(ACTIVE)
+  fileName       String?          @map("file_name")
+  fileSize       Int?             @map("file_size")
+  filePath       String?          @map("file_path")
+  mimeType       String?          @map("mime_type")
+  connectionConfig Json?          @map("connection_config")
+  previewData    Json?            @map("preview_data")
+  columnSchema   Json?            @map("column_schema")
+  rowCount       Int?             @map("row_count")
+  userId         String           @map("user_id")
+  tenantId       String?          @map("tenant_id")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
 
-  user User @relation(fields: [userId], references: [id])
+  user   User    @relation(fields: [userId], references: [id])
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
 
   @@map("datasources")
+}
+
+enum DatasourceType {
+  EXCEL
+  CSV
+  PDF
+  POSTGRES
+  MYSQL
+  SQLSERVER
+  ORACLE
+  OCEANBASE
+  DORIS
+  STARROCKS
+  MONGODB
+  ELASTICSEARCH
+  GOOGLE_SHEETS
+  S3
+  OSS
+  MINIO
+}
+
+enum DatasourceStatus {
+  ACTIVE
+  PROCESSING
+  ERROR
+  INACTIVE
 }
 
 model Report {
@@ -70,10 +126,12 @@ model Report {
   title     String
   content   String?
   userId    String   @map("user_id")
+  tenantId  String?  @map("tenant_id")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  user User @relation(fields: [userId], references: [id])
+  user   User    @relation(fields: [userId], references: [id])
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
 
   @@map("reports")
 }
@@ -81,6 +139,19 @@ model Report {
 enum Role {
   USER
   ADMIN
+}
+
+enum TenantRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum TenantStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
 }
 
 enum Plan {

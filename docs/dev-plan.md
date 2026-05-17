@@ -26,9 +26,11 @@ DataMind/
 - [x] 创建前端 Dockerfile（多阶段构建）
 - [x] 创建后端 Dockerfile（多阶段构建）
 - [x] 编写 docker-compose.yaml（PostgreSQL + 后端 + 前端）
-- [ ] 集成 GitHub Actions CI/CD
-- [ ] 配置自动化测试流水线
-- [ ] 配置镜像构建与推送
+- [x] 集成 GitHub Actions CI/CD
+- [x] 配置自动化测试流水线
+- [x] 配置镜像构建与推送
+
+**部署说明：** 代码提交到 GitHub 后，自动在 Railway 上构建和部署
 
 **一键启动命令：**
 ```bash
@@ -74,11 +76,11 @@ cd backend && npm run db:seed
 
 ### 第二周：后端核心功能
 
-#### 2.1 用户认证系统
-- [ ] JWT 认证实现
-- [ ] 密码加密（bcrypt）
-- [ ] 登录/注册 API
-- [ ] 权限中间件
+#### 2.1 用户认证系统 ✅
+- [x] JWT 认证实现
+- [x] 密码加密（bcrypt）
+- [x] 登录/注册 API
+- [x] 权限中间件
 
 #### 2.2 数据源管理
 - [ ] 文件上传 API（Excel, CSV, PDF）

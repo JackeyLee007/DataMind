@@ -1,0 +1,18 @@
+- [x] Prisma Schema 已更新，包含 DatasourceType 和 DatasourceStatus 枚举，Datasource 模型包含所有新字段
+- [x] 数据库迁移文件已生成并成功应用
+- [x] 后端依赖已安装（multer、xlsx、csv-parse、@types/multer）
+- [x] 文件上传接口 POST /api/datasources/upload 已实现，支持 Excel、CSV、PDF
+- [x] 上传接口正确验证文件类型（拒绝 .txt 等不支持格式返回 400）
+- [x] 上传接口正确限制文件大小（超过 50MB 返回 413）
+- [x] 上传后文件保存到 /uploads/{userId}/{datasourceId}/ 目录
+- [x] 上传后解析文件并提取 columnSchema 和 previewData
+- [x] 列表查询接口 GET /api/datasources 已实现，支持分页和筛选
+- [x] 列表查询仅返回当前用户的数据源
+- [x] 详情接口 GET /api/datasources/:id 已实现，包含 columnSchema 和 previewData
+- [x] 详情接口对非所有者返回 404
+- [x] 更新接口 PATCH /api/datasources/:id 已实现，仅允许更新元数据
+- [x] 删除接口 DELETE /api/datasources/:id 已实现，同时删除数据库记录和文件
+- [x] 预览接口 GET /api/datasources/:id/preview 已实现，支持 limit 参数
+- [x] 所有数据源路由均受 authenticateToken 中间件保护
+- [x] 认证中间件已提取到独立文件 src/middleware/auth.ts
+- [x] TypeScript 编译通过，无类型错误

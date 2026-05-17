@@ -180,6 +180,62 @@ useEffect(() => {
 }, [isLoading, isAuthenticated, router]);
 ```
 
+### 认证路由守卫详解
+
+**什么是路由守卫？**
+
+路由守卫是一种保护机制，用于控制用户能否访问某些页面。就像小区门口的保安：
+- 业主（已登录）→ 放行进入
+- 陌生人（未登录）→ 拦下，去登记（登录页）
+
+**为什么放在 layout.tsx？**
+
+`(workspace)` 目录下的所有页面共享这个布局：
+- `/dashboard`
+- `/chat`
+- `/settings`
+
+一个守卫，保护所有页面，不需要在每个页面重复写。
+
+**工作流程：**
+
+```
+用户访问 /dashboard
+        ↓
+检查 isLoading（是否正在验证 token）
+        ↓
+检查 isAuthenticated（是否已登录）
+    ├─ 是 → 显示 dashboard 页面
+    └─ 否 → 自动跳转到 /login
+```
+
+**完整的认证流程：**
+
+```
+1. 用户登录
+   └─ 后端返回 JWT token
+   └─ 前端存储 token 到 localStorage
+
+2. 访问受保护页面
+   └─ layout.tsx 检查 isAuthenticated
+   └─ useAuth 验证 token 有效性（调用 /api/auth/me）
+
+3. token 有效
+   └─ 显示页面内容
+
+4. token 无效/过期
+   └─ 清除 localStorage
+   └─ 跳转到登录页
+```
+
+**守卫前 vs 守卫后对比：**
+
+| 场景 | 守卫前 | 守卫后 |
+|------|--------|--------|
+| 未登录访问 /dashboard | 能看到页面（报错或空白） | 自动跳转到 /login |
+| 未登录访问 /chat | 能看到页面 | 自动跳转到 /login |
+| 已登录访问 /dashboard | 正常显示 | 正常显示 |
+
 ---
 
 # 2026-05-13
